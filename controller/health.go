@@ -1,9 +1,9 @@
 package controller
 
 import (
-	"tank/bootstrap"
-	"tank/middleware/httpmd"
-	"tank/pkg/exception"
+	"gitee.com/smallcatx0/gtank/bootstrap"
+	"gitee.com/smallcatx0/gtank/middleware/httpmd"
+	"gitee.com/smallcatx0/gtank/pkg/exception"
 
 	"github.com/gin-gonic/gin"
 )

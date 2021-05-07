@@ -1,8 +1,8 @@
 package routes
 
 import (
-	C "tank/controller"
-	"tank/pkg/conf"
+	C "gitee.com/smallcatx0/gtank/controller"
+	"gitee.com/smallcatx0/gtank/pkg/conf"
 
 	"github.com/gin-gonic/gin"
 )

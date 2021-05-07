@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"tank/middleware/httpmd"
+	"gitee.com/smallcatx0/gtank/middleware/httpmd"
 
 	"github.com/gin-gonic/gin"
 )

@@ -3,9 +3,10 @@ package httpmd
 import (
 	"net/http"
 	"strings"
-	"tank/pkg/conf"
-	"tank/pkg/exception"
-	glog "tank/pkg/log"
+
+	"gitee.com/smallcatx0/gtank/pkg/conf"
+	"gitee.com/smallcatx0/gtank/pkg/exception"
+	glog "gitee.com/smallcatx0/gtank/pkg/log"
 
 	"github.com/gin-gonic/gin"
 )

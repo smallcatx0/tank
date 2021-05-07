@@ -9,9 +9,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"tank/pkg/conf"
-	glog "tank/pkg/log"
 	"time"
+
+	"gitee.com/smallcatx0/gtank/pkg/conf"
+	glog "gitee.com/smallcatx0/gtank/pkg/log"
 
 	"github.com/gin-gonic/gin"
 )

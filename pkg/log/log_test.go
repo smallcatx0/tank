@@ -5,7 +5,7 @@ import "testing"
 func setUp() {
 	InitLog(&C{
 		Driver:     "file",
-		Path:       "D:\\Code\\tank\\logs\\cur.log",
+		Path:       "D:\\Code\\gtank\\logs\\cur.log",
 		MaxSize:    32,
 		MaxBackups: 300,
 	})

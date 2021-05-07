@@ -5,7 +5,8 @@ package glog
 import (
 	"os"
 	"strings"
-	"tank/pkg/helper"
+
+	"gitee.com/smallcatx0/gtank/pkg/helper"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

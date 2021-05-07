@@ -1,4 +1,4 @@
-module tank
+module gitee.com/smallcatx0/gtank
 
 go 1.14
 
