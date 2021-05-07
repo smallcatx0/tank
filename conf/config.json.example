@@ -22,11 +22,5 @@
     "max_size": 32,
     "max_age": 30,
     "max_backups": 300
-  },
-  "es_course": {
-    "host" : "es-cn-nif1ym2v4001qbldw.public.elasticsearch.aliyuncs.com",
-    "port" : "9200",
-    "username": "readonly",
-    "passworld": "xxxxxx"
   }
 }
