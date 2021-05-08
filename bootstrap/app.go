@@ -57,15 +57,15 @@ func (app *App) Run(port string) {
 		Handler: app.GinEngibe,
 	}
 	// 优雅终止
+	quit := make(chan os.Signal, 4)
+	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	go handleSignal(quit, app)
+
+	log.Printf("http server expect run in port %s", port)
 	err := app.HttpServ.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		log.Panic(err)
 	}
-	log.Printf("http server run success in %s", port)
-
-	quit := make(chan os.Signal, 4)
-	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	go handleSignal(quit, app)
 }
 
 func handleSignal(c <-chan os.Signal, app *App) {
@@ -109,13 +109,14 @@ func InitConf(filePath *string) {
 // initLog 初始化日志
 func InitLog() {
 	c := conf.AppConf
-	glog.InitLog(&glog.C{
-		Driver:     c.GetString("log.type"),
-		Path:       c.GetString("log.path"),
-		LogLevel:   c.GetString("log.level"),
-		MaxSize:    c.GetInt("log.max_size"),
-		MaxBackups: c.GetInt("log.max_backups"),
-	})
+	if c.GetString("log.type") == "file" {
+		glog.InitLog2file(
+			c.GetString("log.path"),
+			c.GetString("log.level"),
+		)
+	} else {
+		glog.InitLog2std(c.GetString("log.level"))
+	}
 }
 
 // InitDB 初始化db

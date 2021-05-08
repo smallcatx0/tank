@@ -4,6 +4,7 @@ import (
 	"gitee.com/smallcatx0/gtank/bootstrap"
 	"gitee.com/smallcatx0/gtank/middleware/httpmd"
 	"gitee.com/smallcatx0/gtank/pkg/exception"
+	glog "gitee.com/smallcatx0/gtank/pkg/log"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,6 +20,8 @@ func Ready(c *gin.Context) {
 }
 
 func Test(c *gin.Context) {
+	glog.Info("INFO logs", c.GetString(httpmd.RequestIDKey), "{\"id\":1,\"weight\":100}")
+	glog.Info("INFO logs")
 	r.SuccJsonRaw(c, "{\"id\":1,\"weight\":100}")
 }
 

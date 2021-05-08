@@ -6,7 +6,7 @@ import (
 )
 
 // RequestIDKey 唯一请求id
-const RequestIDKey = "request-id"
+const RequestIDKey = "x-b3-traceid"
 
 // SetHeader 设置header
 func SetHeader(c *gin.Context) {

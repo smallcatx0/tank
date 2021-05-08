@@ -7,8 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Init http路由总入口
-func Init(r *gin.Engine) {
+// Register http路由总入口
+func Register(r *gin.Engine) {
 	r.GET("/", func(c *gin.Context) {
 		v := conf.AppConf.GetString("base.describe")
 		c.String(200, v)

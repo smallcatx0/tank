@@ -50,7 +50,7 @@ func (r *Resp) Fail(c *gin.Context, err error) {
 		if conf.Env() == "dev" {
 			rr.Message = err.Error()
 		} else {
-			glog.Error(c.Request.URL, err.Error())
+			glog.Error(c.Request.RequestURI, err.Error())
 			rr.Message = "服务错误"
 		}
 		rr.StatusCode = 400
