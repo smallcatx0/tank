@@ -20,22 +20,22 @@ func TestFile(t *testing.T) {
 	glog.SetAtomLevel("debug")
 
 	glog.Debug("test debug")
-	glog.Debug("test debug with requestId", "request-12dfawedfse")
-	glog.Debug("test debug with mor", "request-12dfawedfse", "extra one", "extra two")
-	glog.DebugF("requestid", "测试模板日志age=%d", 23)
-	glog.DebugT("requestid", "DebugT", param, param)
+	glog.Debug("test debug with requestId", "requestId")
+	glog.Debug("test debug with mor", "requestId", "extra one", "extra two")
+	glog.DebugT("DebugT", "requestId", param, param)
+	glog.DebugF("测试模板日志age=%d", "requestId", 23)
 
-	glog.Info("测试INFO 级别完整信息", "request-123123123", "扩展信息1", "扩展信息2")
-	glog.InfoF("", "测试模板日志name=%s", "kui")
-	glog.InfoT("", "测试模板日志Json扩展信息", param, param)
+	glog.Info("测试INFO 级别完整信息", "requestId", "扩展信息1", "扩展信息2")
+	glog.InfoF("测试模板日志name=%s", "requestId", "kui")
+	glog.InfoT("测试模板日志Json扩展信息", "requestId", param, param)
 
-	glog.Warn("测试warn级别完整信息", "request-123123123", "扩展信息1", "扩展信息2")
-	glog.WarnF("", "测试模板日志name=%s", "kui")
-	glog.WarnT("", "测试模板日志Json扩展信息", param, param)
+	glog.Warn("测试warn级别完整信息", "requestId", "扩展信息1", "扩展信息2")
+	glog.WarnF("测试模板日志name=%s", "requestId", "kui")
+	glog.WarnT("测试模板日志Json扩展信息", "requestId", param, param)
 
-	glog.Error("测试warn级别完整信息", "request-123123123", "扩展信息1", "扩展信息2")
-	glog.ErrorF("", "测试模板日志name=%s", "kui")
-	glog.ErrorT("", "测试模板日志Json扩展信息", param, param)
+	glog.Error("测试warn级别完整信息", "requestId", "扩展信息1", "扩展信息2")
+	glog.ErrorF("测试模板日志name=%s", "requestId", "kui")
+	glog.ErrorT("测试模板日志Json扩展信息", "requestId", param, param)
 
 	glog.DPanic("测试DPanic级别完整信息", "request-dadfmwesd", "扩展信息1", "扩展信息2")
 
@@ -43,8 +43,12 @@ func TestFile(t *testing.T) {
 }
 
 func TestCons(t *testing.T) {
+	defer func() {
+		recover()
+	}()
 	glog.InitLog2std("info")
 	glog.Debug("不会被打出来的日志")
 	glog.SetAtomLevel("debug")
-	glog.Debug("会被打出来的 debug日志", "rq-1231dsf", "extra1", "extra2")
+	glog.Debug("会被打出来的 debug日志", "requestId", "extra1", "extra2")
+	glog.Panic("Panic日志", "requestId", "extra1", "extra2")
 }

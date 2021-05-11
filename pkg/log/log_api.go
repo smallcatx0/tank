@@ -16,12 +16,12 @@ func Debug(msg string, extra ...string) {
 	ZapLoger.Debug(msg, zap.String("request_id", request_id), zap.Strings("extra", extra))
 }
 
-func DebugF(requestID, template string, args ...interface{}) {
+func DebugF(template, requestID string, args ...interface{}) {
 	msg := fmt.Sprintf(template, args...)
 	ZapLoger.Debug(msg, zap.String("request_id", requestID))
 }
 
-func DebugT(requestID, msg string, extra ...interface{}) {
+func DebugT(msg, requestID string, extra ...interface{}) {
 	extSlice := make([]string, 0, len(extra))
 	for _, one := range extra {
 		tmpStr, _ := json.Marshal(one)
@@ -39,12 +39,12 @@ func Info(msg string, extra ...string) {
 	ZapLoger.Info(msg, zap.String("request_id", request_id), zap.Strings("extra", extra))
 }
 
-func InfoF(requestID, template string, args ...interface{}) {
+func InfoF(template, requestID string, args ...interface{}) {
 	msg := fmt.Sprintf(template, args...)
 	ZapLoger.Info(msg, zap.String("request_id", requestID))
 }
 
-func InfoT(requestID, msg string, extra ...interface{}) {
+func InfoT(msg, requestID string, extra ...interface{}) {
 	extSlice := make([]string, 0, len(extra))
 	for _, one := range extra {
 		tmpStr, _ := json.Marshal(one)
@@ -62,12 +62,12 @@ func Warn(msg string, extra ...string) {
 	ZapLoger.Warn(msg, zap.String("request_id", request_id), zap.Strings("extra", extra))
 }
 
-func WarnF(requestID, template string, args ...interface{}) {
+func WarnF(template, requestID string, args ...interface{}) {
 	msg := fmt.Sprintf(template, args...)
 	ZapLoger.Warn(msg, zap.String("request_id", requestID))
 }
 
-func WarnT(requestID, msg string, extra ...interface{}) {
+func WarnT(msg, requestID string, extra ...interface{}) {
 	extSlice := make([]string, 0, len(extra))
 	for _, one := range extra {
 		tmpStr, _ := json.Marshal(one)
@@ -85,12 +85,12 @@ func Error(msg string, extra ...string) {
 	ZapLoger.Error(msg, zap.String("request_id", request_id), zap.Strings("extra", extra))
 }
 
-func ErrorF(requestID, template string, args ...interface{}) {
+func ErrorF(template, requestID string, args ...interface{}) {
 	msg := fmt.Sprintf(template, args...)
 	ZapLoger.Error(msg, zap.String("request_id", requestID))
 }
 
-func ErrorT(requestID, msg string, extra ...interface{}) {
+func ErrorT(msg, requestID string, extra ...interface{}) {
 	extSlice := make([]string, 0, len(extra))
 	for _, one := range extra {
 		tmpStr, _ := json.Marshal(one)
@@ -108,12 +108,12 @@ func DPanic(msg string, extra ...string) {
 	ZapLoger.DPanic(msg, zap.String("request_id", request_id), zap.Strings("extra", extra))
 }
 
-func DPanicF(requestID, template string, args ...interface{}) {
+func DPanicF(template, requestID string, args ...interface{}) {
 	msg := fmt.Sprintf(template, args...)
 	ZapLoger.DPanic(msg, zap.String("request_id", requestID))
 }
 
-func DPanicT(requestID, msg string, extra ...interface{}) {
+func DPanicT(msg, requestID string, extra ...interface{}) {
 	extSlice := make([]string, 0, len(extra))
 	for _, one := range extra {
 		tmpStr, _ := json.Marshal(one)
@@ -131,12 +131,12 @@ func Panic(msg string, extra ...string) {
 	ZapLoger.Panic(msg, zap.String("request_id", request_id), zap.Strings("extra", extra))
 }
 
-func PanicF(requestID, template string, args ...interface{}) {
+func PanicF(template, requestID string, args ...interface{}) {
 	msg := fmt.Sprintf(template, args...)
 	ZapLoger.Panic(msg, zap.String("request_id", requestID))
 }
 
-func PanicT(requestID, msg string, extra ...interface{}) {
+func PanicT(msg, requestID string, extra ...interface{}) {
 	extSlice := make([]string, 0, len(extra))
 	for _, one := range extra {
 		tmpStr, _ := json.Marshal(one)
@@ -154,12 +154,12 @@ func Fatal(msg string, extra ...string) {
 	ZapLoger.Fatal(msg, zap.String("request_id", request_id), zap.Strings("extra", extra))
 }
 
-func FatalF(requestID, template string, args ...interface{}) {
+func FatalF(template, requestID string, args ...interface{}) {
 	msg := fmt.Sprintf(template, args...)
 	ZapLoger.Fatal(msg, zap.String("request_id", requestID))
 }
 
-func FatalT(requestID, msg string, extra ...interface{}) {
+func FatalT(msg, requestID string, extra ...interface{}) {
 	extSlice := make([]string, 0, len(extra))
 	for _, one := range extra {
 		tmpStr, _ := json.Marshal(one)

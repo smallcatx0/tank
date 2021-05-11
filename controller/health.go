@@ -21,7 +21,6 @@ func Ready(c *gin.Context) {
 
 func Test(c *gin.Context) {
 	glog.Info("INFO logs", c.GetString(httpmd.RequestIDKey), "{\"id\":1,\"weight\":100}")
-	glog.Info("INFO logs")
 	r.SuccJsonRaw(c, "{\"id\":1,\"weight\":100}")
 }
 
