@@ -51,4 +51,5 @@ func TestCons(t *testing.T) {
 	glog.SetAtomLevel("debug")
 	glog.Debug("会被打出来的 debug日志", "requestId", "extra1", "extra2")
 	glog.Panic("Panic日志", "requestId", "extra1", "extra2")
+	t.Log("test ok")
 }
