@@ -15,6 +15,13 @@
     "idle_timeout": 1000,
     "key_prefix": "gitee.com/smallcatx0/gtank"
   },
+  "mysql":{
+    "dsn": "root:root@tcp(mysqlserv:3306)/test?charset=utf8&parseTime=True&loc=Local",
+    "debug": false,
+    "maxIdleConns": 10,
+    "maxOpenConns": 100,
+    "connMaxLifetime" : 6
+  },
   "log": {
     "type": "file",
     "path": "./logs/tags.log",

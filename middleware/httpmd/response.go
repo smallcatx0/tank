@@ -6,7 +6,7 @@ import (
 
 	"gitee.com/smallcatx0/gtank/pkg/conf"
 	"gitee.com/smallcatx0/gtank/pkg/exception"
-	glog "gitee.com/smallcatx0/gtank/pkg/log"
+	glog "gitee.com/smallcatx0/gtank/pkg/glog"
 
 	"github.com/gin-gonic/gin"
 )

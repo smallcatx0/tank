@@ -8,4 +8,5 @@ import (
 
 func registeRoute(router *gin.Engine) {
 	router.GET("/demo", v1.Demo)
+	router.POST("/login", v1.LoginByPwd)
 }

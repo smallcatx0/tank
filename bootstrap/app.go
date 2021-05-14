@@ -11,17 +11,11 @@ import (
 	"syscall"
 	"time"
 
+	"gitee.com/smallcatx0/gtank/models/dao"
 	"gitee.com/smallcatx0/gtank/pkg/conf"
-	glog "gitee.com/smallcatx0/gtank/pkg/log"
+	"gitee.com/smallcatx0/gtank/pkg/glog"
 
 	"github.com/gin-gonic/gin"
-)
-
-var (
-	Param struct {
-		C string
-		H bool
-	}
 )
 
 type App struct {
@@ -83,8 +77,15 @@ func handleSignal(c <-chan os.Signal, app *App) {
 	os.Exit(0)
 }
 
+var (
+	Param struct {
+		C string
+		H bool
+	}
+)
+
 func InitFlag() {
-	flag.StringVar(&Param.C, "config", "conf/config.json", "配置文件地址")
+	flag.StringVar(&Param.C, "config", "conf/app.json", "配置文件地址")
 	flag.BoolVar(&Param.H, "help", false, "帮助")
 }
 
@@ -121,4 +122,5 @@ func InitLog() {
 
 // InitDB 初始化db
 func InitDB() {
+	dao.MysqlInit()
 }
