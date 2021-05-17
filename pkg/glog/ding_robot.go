@@ -6,8 +6,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -49,9 +49,7 @@ func DingAlarmNew(webHook, secret string) *DingAlarm {
 	d := &DingAlarm{
 		webHook: webHook,
 		secret:  secret,
-		Msg: &DingMsg{
-			At: DingBodyAt{},
-		},
+		Msg:     &DingMsg{},
 	}
 	return d
 }
@@ -69,7 +67,9 @@ func (d *DingAlarm) signature() string {
 	return sign
 }
 
+// TODO: 开携程
 func (d *DingAlarm) Send() error {
+
 	return d.SendMsg(d.Msg)
 }
 
@@ -77,14 +77,18 @@ func (d *DingAlarm) SendMsg(msg *DingMsg) error {
 	sign := d.signature()
 	url := d.webHook + "&timestamp=" + d.timestamp + "&sign=" + sign
 	body, _ := json.Marshal(msg)
-	DebugT("dingUrl=", "", url, body)
 	resp, err := new(http.Client).Post(url, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
 	res, _ := ioutil.ReadAll(resp.Body)
-	log.Print(string(res))
-	return nil
+	ress := make(map[string]interface{})
+	json.Unmarshal(res, &ress)
+	errcd, ok := ress["errcode"].(float64)
+	if ok && errcd == 0 {
+		return nil
+	}
+	return errors.New(string(res))
 }
 
 func (d *DingAlarm) Text(con string) *DingAlarm {
@@ -105,17 +109,23 @@ func (d *DingAlarm) Markdown(title, md string) *DingAlarm {
 }
 
 func (d *DingAlarm) AtPhones(phone ...string) *DingAlarm {
-	d.Msg.At.AtMobiles = phone
+	d.Msg.At = DingBodyAt{
+		AtMobiles: phone,
+	}
 	return d
 }
 
 func (d *DingAlarm) AtUsers(id ...string) *DingAlarm {
-	d.Msg.At.AtUserIds = id
+	d.Msg.At = DingBodyAt{
+		AtUserIds: id,
+	}
 	return d
 }
 
 func (d *DingAlarm) AtAll() *DingAlarm {
-	d.Msg.At.IsAtAll = true
+	d.Msg.At = DingBodyAt{
+		IsAtAll: true,
+	}
 	return d
 }
 

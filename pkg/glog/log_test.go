@@ -3,13 +3,10 @@ package glog_test
 import (
 	"testing"
 
-	glog "gitee.com/smallcatx0/gtank/pkg/glog"
+	"gitee.com/smallcatx0/gtank/pkg/glog"
 )
 
-func setUp() {
-}
 func TestFile(t *testing.T) {
-	setUp()
 	glog.InitLog2file("/home/logs/tank/curr.log", "Info")
 	param := map[string]interface{}{
 		"name": "kui",
@@ -19,11 +16,11 @@ func TestFile(t *testing.T) {
 	glog.Debug("该条日志不应会被记录")
 	glog.SetAtomLevel("debug")
 
-	glog.Debug("test debug")
+	glog.Debug("test debug ")
 	glog.Debug("test debug with requestId", "requestId")
-	glog.Debug("test debug with mor", "requestId", "extra one", "extra two")
-	glog.DebugT("DebugT", "requestId", param, param)
-	glog.DebugF("测试模板日志age=%d", "requestId", 23)
+	glog.Debug("test debug with more", "requestId", "extra one", "extra two")
+	glog.DebugT("test debug json", "requestId", param, param)
+	glog.DebugF("test debug template age=%d", "requestId", 23)
 
 	glog.Info("测试INFO 级别完整信息", "requestId", "扩展信息1", "扩展信息2")
 	glog.InfoF("测试模板日志name=%s", "requestId", "kui")

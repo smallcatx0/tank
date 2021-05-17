@@ -3,6 +3,7 @@ package controller
 import (
 	"gitee.com/smallcatx0/gtank/bootstrap"
 	"gitee.com/smallcatx0/gtank/middleware/httpmd"
+	"gitee.com/smallcatx0/gtank/pkg/conf"
 	"gitee.com/smallcatx0/gtank/pkg/exception"
 	"gitee.com/smallcatx0/gtank/pkg/glog"
 
@@ -20,14 +21,23 @@ func Ready(c *gin.Context) {
 }
 
 func Test(c *gin.Context) {
+	config := conf.AppConf
 	ala := glog.DingAlarmNew(
-		"https://oapi.dingtalk.com/robot/send?access_token=90526e10d036265881023da81c1740240a4ac3434954810de42319d074b841ac",
-		"SECfa8c17407ea9d632eef8c09e6ad205049b95c7beb8b809f4298af306460f1d23",
+		config.GetString("dingRobot.webHook"),
+		config.GetString("dingRobot.robot"),
 	)
-	// ala.SendMd("test markdown", "# h1 \n\n ## h2 \n\n ### h3")
-	ala.Text("go test").AtPhones("18681636749").AtAll().Send()
-
-	// ala.Send(new(glog.DingMsg).SetText("text"))
+	// ala.Markdown("markdown", "### 标题三 \n\n内容").AtPhones("18681636749").Send()
+	// ala.Text("文本测试内容").AtPhones("18681636749").Send()
+	ala.SendMsg(&glog.DingMsg{
+		Msgtype: "markdown",
+		Markdown: glog.DingBodyMd{
+			Title: "markdown",
+			Text:  "### 标题三 \n\n内容",
+		},
+		At: glog.DingBodyAt{
+			AtMobiles: []string{"18681636749"},
+		},
+	})
 	r.SuccJsonRaw(c, "{\"id\":1,\"weight\":100}")
 }
 
