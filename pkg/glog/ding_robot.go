@@ -9,7 +9,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -18,9 +20,10 @@ type DingAlarm struct {
 	secret    string
 	sign      string
 	timestamp string
+	Msg       *DingMsg
 }
 
-type DingBody struct {
+type DingMsg struct {
 	Msgtype  string       `json:"msgtype"`
 	Text     DingBodyText `json:"text"`
 	Markdown DingBodyMd   `json:"markdown"`
@@ -46,14 +49,35 @@ func DingAlarmNew(webHook, secret string) *DingAlarm {
 	d := &DingAlarm{
 		webHook: webHook,
 		secret:  secret,
+		Msg: &DingMsg{
+			At: DingBodyAt{},
+		},
 	}
 	return d
 }
 
-func (d *DingAlarm) Send(msg DingBody) error {
-	d.signature()
-	url := d.webHook + "&timestamp=" + d.timestamp + "&sign=" + d.sign
+func (d *DingAlarm) signature() string {
+	now := time.Now().Unix() * 1000
+	d.timestamp = strconv.FormatInt(now, 10)
+	h := hmac.New(sha256.New, []byte(d.secret))
+	h.Write([]byte(d.timestamp + "\n" + d.secret))
+	sign := base64.URLEncoding.EncodeToString(h.Sum(nil))
+	sign = url.PathEscape(sign)
+	sign = strings.Replace(sign, "-", "%2B", -1)
+	sign = strings.Replace(sign, "_", "%2F", -1)
+	d.sign = sign
+	return sign
+}
+
+func (d *DingAlarm) Send() error {
+	return d.SendMsg(d.Msg)
+}
+
+func (d *DingAlarm) SendMsg(msg *DingMsg) error {
+	sign := d.signature()
+	url := d.webHook + "&timestamp=" + d.timestamp + "&sign=" + sign
 	body, _ := json.Marshal(msg)
+	DebugT("dingUrl=", "", url, body)
 	resp, err := new(http.Client).Post(url, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return err
@@ -63,14 +87,45 @@ func (d *DingAlarm) Send(msg DingBody) error {
 	return nil
 }
 
-func (d DingAlarm) signature() {
-	now := time.Now().Unix() * 1000
-	d.timestamp = strconv.FormatInt(now, 10)
-	h := hmac.New(sha256.New, []byte(d.secret))
-	h.Write([]byte(d.timestamp + "\n" + d.secret))
-	sign := base64.URLEncoding.EncodeToString(h.Sum(nil))
-	// sign = url.PathEscape(sign)
-	// sign = strings.Replace(sign, "-", "%2B", -1)
-	// sign = strings.Replace(sign, "_", "%2F", -1)
-	d.sign = sign
+func (d *DingAlarm) Text(con string) *DingAlarm {
+	d.Msg.Msgtype = "text"
+	d.Msg.Text = DingBodyText{
+		Content: con,
+	}
+	return d
+}
+
+func (d *DingAlarm) Markdown(title, md string) *DingAlarm {
+	d.Msg.Msgtype = "markdown"
+	d.Msg.Markdown = DingBodyMd{
+		Title: title,
+		Text:  md,
+	}
+	return d
+}
+
+func (d *DingAlarm) AtPhones(phone ...string) *DingAlarm {
+	d.Msg.At.AtMobiles = phone
+	return d
+}
+
+func (d *DingAlarm) AtUsers(id ...string) *DingAlarm {
+	d.Msg.At.AtUserIds = id
+	return d
+}
+
+func (d *DingAlarm) AtAll() *DingAlarm {
+	d.Msg.At.IsAtAll = true
+	return d
+}
+
+func (d *DingAlarm) SendMd(title, content string) error {
+	msg := DingMsg{
+		Msgtype: "markdown",
+		Markdown: DingBodyMd{
+			Title: title,
+			Text:  content,
+		},
+	}
+	return d.SendMsg(&msg)
 }
