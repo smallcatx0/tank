@@ -1,8 +1,12 @@
 # 日志包
 
-基于 `go.uber.org/zap`封装的日志包
+
+
+
 
 ### 文件日志
+
+基于 `go.uber.org/zap`封装的日志包
 
 #### 初始化
 
@@ -22,10 +26,9 @@ glog.Debug("msg")
 glog.Debug("msg", "requestId", "extra one", "extra two")
 glog.DebugT("msg", "requestId", param, param) // param都会被json序列化
 glog.DebugF("测试模板日志age=%d", "requestId", 23) 
-
 ```
 
-`/home/logs/tank/curr.log` 
+`/home/logs/tank/curr.log`  日志文件中 每行json
 
 ```log
 {"level":"debug","ts":"2021-05-17T15:09:24.717+0800","caller":"glog/log_test.go:22","msg":"test debug ","request_id":"","extra":[]}
