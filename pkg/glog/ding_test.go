@@ -16,3 +16,10 @@ func TestTextMsg(t *testing.T) {
 	err := ala.Text("测试普通消息").AtPhones("18681636749").Send()
 	assert.NoError(err)
 }
+
+func TestMDMsg(t *testing.T) {
+	assert := assert.New(t)
+	ala := glog.DingAlarmNew(webHook, secret)
+	err := ala.Markdown("title", "### 三级标题 \n\n> 引用 \n\n内容").Send()
+	assert.NoError(err)
+}
