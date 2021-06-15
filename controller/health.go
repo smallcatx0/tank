@@ -28,16 +28,11 @@ func Test(c *gin.Context) {
 	)
 	// ala.Markdown("markdown", "### 标题三 \n\n内容").AtPhones("18681636749").Send()
 	// ala.Text("文本测试内容").AtPhones("18681636749").Send()
-	ala.SendMsg(&glog.DingMsg{
-		Msgtype: "markdown",
-		Markdown: glog.DingBodyMd{
-			Title: "markdown",
-			Text:  "### 标题三 \n\n内容",
-		},
-		At: glog.DingBodyAt{
-			AtMobiles: []string{"18681636749"},
-		},
-	})
+	msg := glog.DingMsg{Msgtype: "markdown"}
+	msg.Markdown.Title = "testMard"
+	msg.Markdown.Text = "### 标题三 \n\n内容"
+	msg.At.AtMobiles = []string{"18681636749"}
+	ala.SendMsg(&msg)
 	r.SuccJsonRaw(c, "{\"id\":1,\"weight\":100}")
 }
 

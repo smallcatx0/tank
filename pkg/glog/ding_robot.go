@@ -24,25 +24,19 @@ type DingAlarm struct {
 }
 
 type DingMsg struct {
-	Msgtype  string       `json:"msgtype"`
-	Text     DingBodyText `json:"text"`
-	Markdown DingBodyMd   `json:"markdown"`
-	At       DingBodyAt   `json:"at"`
-}
-
-type DingBodyText struct {
-	Content string `json:"content"`
-}
-
-type DingBodyMd struct {
-	Title string `json:"title"`
-	Text  string `json:"text"`
-}
-
-type DingBodyAt struct {
-	AtMobiles []string `json:"atMobiles"`
-	AtUserIds []string `json:"atUserIds"`
-	IsAtAll   bool     `json:"isAtAll"`
+	Msgtype string `json:"msgtype"`
+	Text    struct {
+		Content string `json:"content"`
+	} `json:"text"`
+	Markdown struct {
+		Title string `json:"title"`
+		Text  string `json:"text"`
+	} `json:"markdown"`
+	At struct {
+		AtMobiles []string `json:"atMobiles"`
+		AtUserIds []string `json:"atUserIds"`
+		IsAtAll   bool     `json:"isAtAll"`
+	} `json:"at"`
 }
 
 func DingAlarmNew(webHook, secret string) *DingAlarm {
@@ -67,7 +61,6 @@ func (d *DingAlarm) signature() string {
 	return sign
 }
 
-// TODO: 开携程
 func (d *DingAlarm) Send() error {
 
 	return d.SendMsg(d.Msg)
@@ -93,49 +86,37 @@ func (d *DingAlarm) SendMsg(msg *DingMsg) error {
 
 func (d *DingAlarm) Text(con string) *DingAlarm {
 	d.Msg.Msgtype = "text"
-	d.Msg.Text = DingBodyText{
-		Content: con,
-	}
+	d.Msg.Text.Content = con
 	return d
 }
 
 func (d *DingAlarm) Markdown(title, md string) *DingAlarm {
 	d.Msg.Msgtype = "markdown"
-	d.Msg.Markdown = DingBodyMd{
-		Title: title,
-		Text:  md,
-	}
+	d.Msg.Markdown.Title = title
+	d.Msg.Markdown.Text = md
 	return d
 }
 
 func (d *DingAlarm) AtPhones(phone ...string) *DingAlarm {
-	d.Msg.At = DingBodyAt{
-		AtMobiles: phone,
-	}
+	d.Msg.At.AtMobiles = phone
 	return d
 }
 
 func (d *DingAlarm) AtUsers(id ...string) *DingAlarm {
-	d.Msg.At = DingBodyAt{
-		AtUserIds: id,
-	}
+	d.Msg.At.AtUserIds = id
 	return d
 }
 
 func (d *DingAlarm) AtAll() *DingAlarm {
-	d.Msg.At = DingBodyAt{
-		IsAtAll: true,
-	}
+	d.Msg.At.IsAtAll = true
 	return d
 }
 
 func (d *DingAlarm) SendMd(title, content string) error {
 	msg := DingMsg{
 		Msgtype: "markdown",
-		Markdown: DingBodyMd{
-			Title: title,
-			Text:  content,
-		},
 	}
+	msg.Markdown.Title = title
+	msg.Markdown.Text = content
 	return d.SendMsg(&msg)
 }
