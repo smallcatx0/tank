@@ -15,6 +15,12 @@ import (
 	"time"
 )
 
+var DingAla *DingAlarm
+
+func InitDingAla(webHook, secret string) {
+	DingAla = DingAlarmNew(webHook, secret)
+}
+
 type DingAlarm struct {
 	webHook   string
 	secret    string
@@ -62,8 +68,10 @@ func (d *DingAlarm) signature() string {
 }
 
 func (d *DingAlarm) Send() error {
-
-	return d.SendMsg(d.Msg)
+	err := d.SendMsg(d.Msg)
+	// 清除上次消息内容
+	d.Msg = &DingMsg{}
+	return err
 }
 
 func (d *DingAlarm) SendMsg(msg *DingMsg) error {
@@ -84,16 +92,18 @@ func (d *DingAlarm) SendMsg(msg *DingMsg) error {
 	return errors.New(string(res))
 }
 
-func (d *DingAlarm) Text(con string) *DingAlarm {
+func (d *DingAlarm) Text(con ...string) *DingAlarm {
 	d.Msg.Msgtype = "text"
-	d.Msg.Text.Content = con
+	text := strings.Join(con, "\n")
+	d.Msg.Text.Content = text
 	return d
 }
 
-func (d *DingAlarm) Markdown(title, md string) *DingAlarm {
+func (d *DingAlarm) Markdown(title string, md ...string) *DingAlarm {
 	d.Msg.Msgtype = "markdown"
 	d.Msg.Markdown.Title = title
-	d.Msg.Markdown.Text = md
+	mdStr := strings.Join(md, "\n\n")
+	d.Msg.Markdown.Text = mdStr
 	return d
 }
 

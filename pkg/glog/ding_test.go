@@ -13,13 +13,14 @@ var secret = "SECfa8c17407ea9d632eef8c09e6ad205049b95c7beb8b809f4298af306460f1d2
 func TestTextMsg(t *testing.T) {
 	assert := assert.New(t)
 	ala := glog.DingAlarmNew(webHook, secret)
-	err := ala.Text("测试普通消息").AtPhones("18681636749").Send()
+	err := ala.Text("测试普通消息", "多行文本内容", "自定义消息体").AtPhones("18681636749").Send()
+	ala.Text("消息粘滞").Send()
 	assert.NoError(err)
 }
 
 func TestMDMsg(t *testing.T) {
 	assert := assert.New(t)
 	ala := glog.DingAlarmNew(webHook, secret)
-	err := ala.Markdown("title", "### 三级标题 \n\n> 引用 \n\n内容").Send()
+	err := ala.Markdown("title", "### 三级标题", "> 引用", "内容").Send()
 	assert.NoError(err)
 }
