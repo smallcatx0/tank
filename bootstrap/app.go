@@ -122,5 +122,9 @@ func InitLog() {
 
 // InitDB 初始化db
 func InitDB() {
-	dao.MysqlInit()
+	// dao.MysqlInit()
+	err := dao.InitRedis()
+	if err != nil {
+		panic(err)
+	}
 }

@@ -1,6 +1,10 @@
 package helper
 
-import "reflect"
+import (
+	"os"
+	"path/filepath"
+	"reflect"
+)
 
 // Empty 判断是否为空
 func Empty(val interface{}) bool {
@@ -42,4 +46,39 @@ func GetDefStr(val, def string) string {
 		return def
 	}
 	return val
+}
+
+// FileExists 检查文件是否存在
+func FileExists(file string) bool {
+	_, err := os.Stat(file)
+	if err == nil {
+		return true //文件或者文件夹存在
+	}
+	if os.IsNotExist(err) {
+		return false //不存在
+	}
+	return false //不存在，这里的err可以查到具体的错误信息
+}
+
+// TouchDir 创建文件夹
+func TouchDir(path string) error {
+	dir, _ := filepath.Split(path)
+	if FileExists(dir) {
+		return nil
+	}
+	err := os.MkdirAll(dir, 0666)
+	return err
+}
+
+// AppendFile 追加文件
+func AppendFile(filename string, data []byte, perm os.FileMode) error {
+	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, perm)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	if err1 := f.Close(); err == nil {
+		err = err1
+	}
+	return err
 }

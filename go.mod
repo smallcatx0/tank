@@ -12,6 +12,6 @@ require (
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.10.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
-	gorm.io/driver/mysql v1.0.6
+	gorm.io/driver/mysql v1.1.0
 	gorm.io/gorm v1.21.9
 )
