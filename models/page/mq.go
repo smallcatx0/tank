@@ -1,9 +1,10 @@
 package page
 
 import (
-	"log"
+	"time"
 
 	request "gitee.com/smallcatx0/gequest"
+	"gitee.com/smallcatx0/gtank/models/dao"
 	"gitee.com/smallcatx0/gtank/models/dao/rdb"
 	"gitee.com/smallcatx0/gtank/valid"
 	"github.com/gin-gonic/gin"
@@ -15,9 +16,6 @@ var HttpCli *request.Core
 type MqPub struct{}
 
 func (pub *MqPub) Push(c *gin.Context, param *valid.PushParam) error {
-	RdbMq := &rdb.Mq{
-		Key: "test_key",
-	}
 	body := &rdb.HttpBody{
 		Url:    param.URL,
 		Method: "post",
@@ -31,9 +29,12 @@ func (pub *MqPub) Push(c *gin.Context, param *valid.PushParam) error {
 type MqHttpSub struct{}
 
 func InitSub() {
-	sub := new(MqHttpSub)
-	HttpCli = request.New("mq-unifisub", "", 3000)
-	sub.goPop(5)
+	RdbMq = &rdb.Mq{
+		Key: "test_key",
+		Cli: dao.Rdb,
+	}
+	HttpCli = request.New("mq-unifisub", "", 3000).Debug(true)
+	new(MqHttpSub).goPop(2)
 }
 
 func (sub *MqHttpSub) goPop(pool int) {
@@ -44,9 +45,15 @@ func (sub *MqHttpSub) goPop(pool int) {
 	}
 }
 
+// httpConsume http消费者
 func httpConsume(res string) {
 	// 请求 接口
 	reqBody := &rdb.HttpBody{}
 	reqBody.Build(res)
-	log.Print(reqBody)
+	// TODO:每两秒，消费一条
+	time.Sleep(time.Second * 2)
+	HttpCli.SetMethod(reqBody.Method).
+		SetUri(reqBody.Url).
+		SetBody([]byte(reqBody.Body)).
+		Send()
 }

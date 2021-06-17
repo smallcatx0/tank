@@ -3,6 +3,7 @@ package v1
 import (
 	"encoding/json"
 	"path/filepath"
+	"time"
 
 	"gitee.com/smallcatx0/gtank/models/page"
 	"gitee.com/smallcatx0/gtank/pkg/conf"
@@ -31,9 +32,9 @@ func Push(c *gin.Context) {
 func DevNull(c *gin.Context) {
 	requesBody, _ := c.GetRawData()
 	param := make(map[string]interface{}, 10)
+	param["time"] = time.Now().String()
 	param["body"] = string(requesBody)
 	param["header"] = c.Request.Header
-
 	content, _ := json.Marshal(param)
 	content = append(content, 10)
 

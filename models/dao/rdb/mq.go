@@ -2,13 +2,15 @@ package rdb
 
 import (
 	"encoding/json"
+	"log"
 	"time"
 
-	"gitee.com/smallcatx0/gtank/models/dao"
 	"gitee.com/smallcatx0/gtank/pkg/glog"
+	"github.com/go-redis/redis/v8"
 )
 
 type Mq struct {
+	Cli *redis.Client
 	Key string
 }
 
@@ -35,7 +37,7 @@ func (b *HttpBody) Build(jsonStr string) (err error) {
 }
 
 func (mq *Mq) Push(msg MqMsg) {
-	res := dao.Rdb.LPush(dao.Rdb.Context(), mq.Key, msg.String())
+	res := mq.Cli.LPush(mq.Cli.Context(), mq.Key, msg.String())
 	if err := res.Err(); err != nil {
 		glog.Error("PushQueue err", "", err.Error())
 	}
@@ -45,10 +47,13 @@ func (mq *Mq) Push(msg MqMsg) {
 func (mq *Mq) BPop(hander func(string)) {
 	for {
 		// 阻塞式监听该key
-		res := dao.Rdb.BRPop(dao.Rdb.Context(), time.Second, mq.Key)
-		if err := res.Err(); err != nil {
-			// 如果是超时，继续监听
+		res := mq.Cli.BRPop(mq.Cli.Context(), time.Second*10, mq.Key)
+		err := res.Err()
+		if err == nil {
+			hander(res.Val()[1])
 		}
-		hander(res.String())
+		if err == redis.Nil {
+			log.Print("queueIsEmpty")
+		}
 	}
 }
