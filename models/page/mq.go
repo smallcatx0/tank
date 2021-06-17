@@ -1,6 +1,7 @@
 package page
 
 import (
+	"encoding/json"
 	"time"
 
 	request "gitee.com/smallcatx0/gequest"
@@ -50,10 +51,15 @@ func httpConsume(res string) {
 	// 请求 接口
 	reqBody := &rdb.HttpBody{}
 	reqBody.Build(res)
+
+	hd := make(map[string]string, 5)
+	json.Unmarshal([]byte(reqBody.Header), &hd)
+
 	// TODO:每两秒，消费一条
 	time.Sleep(time.Second * 2)
 	HttpCli.SetMethod(reqBody.Method).
 		SetUri(reqBody.Url).
 		SetBody([]byte(reqBody.Body)).
+		SetHeaders(hd).
 		Send()
 }
