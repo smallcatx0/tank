@@ -34,8 +34,8 @@ func (b *HttpBody) Build(jsonStr string) (err error) {
 	return json.Unmarshal([]byte(jsonStr), b)
 }
 
-func (mq *Mq) Push(msg *MqMsg) {
-	res := dao.Rdb.LPush(dao.Rdb.Context(), mq.Key, (*msg).String())
+func (mq *Mq) Push(msg MqMsg) {
+	res := dao.Rdb.LPush(dao.Rdb.Context(), mq.Key, msg.String())
 	if err := res.Err(); err != nil {
 		glog.Error("PushQueue err", "", err.Error())
 	}

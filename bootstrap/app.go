@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"gitee.com/smallcatx0/gtank/models/dao"
+	"gitee.com/smallcatx0/gtank/models/page"
 	"gitee.com/smallcatx0/gtank/pkg/conf"
 	"gitee.com/smallcatx0/gtank/pkg/glog"
 
@@ -127,4 +128,5 @@ func InitDB() {
 	if err != nil {
 		panic(err)
 	}
+	page.InitSub()
 }
