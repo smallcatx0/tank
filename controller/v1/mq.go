@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"gitee.com/smallcatx0/gtank/models/page"
+	"gitee.com/smallcatx0/gtank/models/data"
 	"gitee.com/smallcatx0/gtank/pkg/conf"
 	"gitee.com/smallcatx0/gtank/pkg/helper"
 	"gitee.com/smallcatx0/gtank/valid"
@@ -20,7 +20,7 @@ func Push(c *gin.Context) {
 		return
 	}
 	// 丢消息
-	err = new(page.MqPub).Push(c, &param)
+	err = new(data.MqPub).Push(c, &param)
 	if err != nil {
 		r.Fail(c, err)
 		return

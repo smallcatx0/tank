@@ -1,11 +1,10 @@
-package page
+package data
 
 import (
 	"encoding/json"
 	"time"
 
 	request "gitee.com/smallcatx0/gequest"
-	"gitee.com/smallcatx0/gtank/models/dao"
 	"gitee.com/smallcatx0/gtank/models/dao/rdb"
 	"gitee.com/smallcatx0/gtank/valid"
 	"github.com/gin-gonic/gin"
@@ -29,13 +28,12 @@ func (pub *MqPub) Push(c *gin.Context, param *valid.PushParam) error {
 
 type MqHttpSub struct{}
 
-func InitSub() {
+func InitSub(pool int) {
 	RdbMq = &rdb.Mq{
 		Key: "test_key",
-		Cli: dao.Rdb,
 	}
 	HttpCli = request.New("mq-unifisub", "", 3000).Debug(true)
-	new(MqHttpSub).goPop(2)
+	new(MqHttpSub).goPop(pool)
 }
 
 func (sub *MqHttpSub) goPop(pool int) {
