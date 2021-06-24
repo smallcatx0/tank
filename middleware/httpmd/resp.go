@@ -16,20 +16,20 @@ type Resp struct{}
 
 // 响应体
 type responseData struct {
-	StatusCode uint32      `json:"status_code"`
-	Message    string      `json:"message"`
-	Data       interface{} `json:"data"`
-	RequestID  string      `json:"request_id"`
+	ErrCode   uint32      `json:"errcode"`
+	Msg       string      `json:"msg"`
+	Data      interface{} `json:"data"`
+	RequestID string      `json:"request_id"`
 }
 
 // Succ 成功返回
 func (r *Resp) Succ(c *gin.Context, data interface{}, msg ...string) {
 	rr := new(responseData)
-	rr.StatusCode = http.StatusOK
+	rr.ErrCode = 0
 	if len(msg) == 0 {
-		rr.Message = exception.ErrNos[rr.StatusCode]
+		rr.Msg = exception.ErrNos[rr.ErrCode]
 	} else {
-		rr.Message = strings.Join(msg, ",")
+		rr.Msg = strings.Join(msg, ",")
 	}
 	rr.Data = data
 	rr.RequestID = c.GetString(RequestIDKey)
@@ -42,18 +42,18 @@ func (r *Resp) Fail(c *gin.Context, err error) {
 	rr := new(responseData)
 	switch e := err.(type) {
 	case *exception.Exception:
-		rr.StatusCode = e.Code
-		rr.Message = e.Msg
+		rr.ErrCode = e.Code
+		rr.Msg = e.Msg
 		httpState = e.HTTPCode
 	default:
 		// 记录日志
 		if conf.Env() == "dev" {
-			rr.Message = err.Error()
+			rr.Msg = err.Error()
 		} else {
 			glog.Error(c.Request.RequestURI, err.Error())
-			rr.Message = "服务错误"
+			rr.Msg = "服务错误"
 		}
-		rr.StatusCode = 400
+		rr.ErrCode = 400
 		httpState = 400
 	}
 	rr.RequestID = c.GetString(RequestIDKey)
