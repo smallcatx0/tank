@@ -1,8 +1,7 @@
 package httpmd
 
 import (
-	"bytes"
-	"io/ioutil"
+	"encoding/json"
 
 	"gitee.com/smallcatx0/gtank/pkg/conf"
 	glog "gitee.com/smallcatx0/gtank/pkg/glog"
@@ -33,17 +32,18 @@ func SetHeader(c *gin.Context) {
 // ReqLog 记录全量请求日志
 func ReqLog(c *gin.Context) {
 	if conf.IsDebug() {
-		requestData, _ := c.GetRawData()
 		path := c.Request.RequestURI
+		requestData, _ := c.Copy().GetRawData()
+		header, _ := json.Marshal(c.Request.Header)
 		if _, ok := LogWrite[path]; ok {
 			// 白名单不记录
 			return
 		}
-		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(requestData))
 		glog.Debug("request_log",
 			c.GetString(RequestIDKey),
 			path,
 			string(requestData),
+			string(header),
 		)
 	}
 }

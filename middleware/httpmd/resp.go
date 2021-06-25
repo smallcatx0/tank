@@ -7,6 +7,7 @@ import (
 	"gitee.com/smallcatx0/gtank/pkg/conf"
 	"gitee.com/smallcatx0/gtank/pkg/exception"
 	glog "gitee.com/smallcatx0/gtank/pkg/glog"
+	"gitee.com/smallcatx0/gtank/pkg/helper"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,6 +21,34 @@ type responseData struct {
 	Msg       string      `json:"msg"`
 	Data      interface{} `json:"data"`
 	RequestID string      `json:"request_id"`
+}
+
+// 分页规范
+type Pagination struct {
+	Page      int `json:"page"`
+	Limit     int `json:"limit"`
+	Total     int `json:"total"`
+	TotalPage int `json:"total_page"`
+	Offset    int `json:"-"`
+}
+
+// Format 格式化
+func (p *Pagination) Format(page, limit, total int) {
+	p.Total = total
+	p.Limit = helper.GetDefInt(limit, 10)
+	p.TotalPage = p.Total / p.Limit
+	if (p.Total / p.Limit) != 0 {
+		p.TotalPage = 1
+	}
+	switch {
+	case page < 1:
+		p.Page = 1
+	case page >= 1 && page <= p.TotalPage:
+		p.Page = page
+	case page > p.TotalPage:
+		p.Page = p.TotalPage
+	}
+	p.Offset = (p.Page - 1) * p.Limit
 }
 
 // Succ 成功返回
