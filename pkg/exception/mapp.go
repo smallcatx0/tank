@@ -23,3 +23,10 @@ var (
 	ErrRedis  = NewError(609002, 400)
 	ErrEsPing = NewError(609003, 400)
 )
+
+var (
+	// 参数校验失败
+	ParamInValid = func(msg string) error {
+		return NewError(401, 200, msg)
+	}
+)

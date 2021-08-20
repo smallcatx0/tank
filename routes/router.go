@@ -1,16 +1,21 @@
 package routes
 
 import (
-	v1 "gitee.com/smallcatx0/gtank/controller/v1"
+	C "gitee.com/smallcatx0/gtank/controller"
+	"gitee.com/smallcatx0/gtank/pkg/conf"
 
 	"github.com/gin-gonic/gin"
 )
 
-func registeRoute(router *gin.Engine) {
-	router.GET("/demo", v1.Demo)
-	router.POST("/login", v1.LoginByPwd)
-
-	router.POST("/mq/dev-null", v1.DevNull)
-	router.POST("/mq/push", v1.Push)
-
+// Register http路由总入口
+func Register(r *gin.Engine) {
+	r.GET("/", func(c *gin.Context) {
+		v := conf.AppConf.GetString("base.describe")
+		c.String(200, v)
+	}) // version
+	r.GET("/healthz", C.Healthz)
+	r.GET("/ready", C.Ready)
+	r.GET("/reload", C.ReloadConf)
+	r.GET("/test", C.Test)
+	registeRoute(r)
 }
