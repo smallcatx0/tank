@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"gitee.com/smallcatx0/gtank/middleware/resp"
 	"gitee.com/smallcatx0/gtank/models/data"
 	"gitee.com/smallcatx0/gtank/pkg/conf"
 	"gitee.com/smallcatx0/gtank/pkg/helper"
@@ -16,16 +17,16 @@ func Push(c *gin.Context) {
 	param := valid.PushParam{}
 	err := valid.BindAndCheck(c, &param)
 	if err != nil {
-		r.Fail(c, err)
+		resp.Fail(c, err)
 		return
 	}
 	// 丢消息
 	err = new(data.MqPub).Push(c, &param)
 	if err != nil {
-		r.Fail(c, err)
+		resp.Fail(c, err)
 		return
 	}
-	r.Succ(c, param)
+	resp.Succ(c, param)
 }
 
 // 将请求全量记录
@@ -42,8 +43,8 @@ func DevNull(c *gin.Context) {
 	helper.TouchDir(f)
 	err := helper.AppendFile(f, content, 0777)
 	if err != nil {
-		r.Fail(c, err)
+		resp.Fail(c, err)
 		return
 	}
-	r.Succ(c, param)
+	resp.Succ(c, param)
 }
