@@ -7,8 +7,13 @@ import (
 )
 
 func registeRoute(router *gin.Engine) {
-	router.POST("/login", v1.LoginByPwd)
-	router.POST("/mq/dev-null", v1.DevNull)
-	router.POST("/mq/push", v1.Push)
+	root := router.Group("/v1")
 
+	userRout := root.Group("/user")
+	user := v1.User{}
+	userRout.POST("/regist", user.RegistByPhone)
+	userRout.POST("/login", user.LoginByPwd)
+
+	demo := v1.Demo{}
+	userRout.GET("/userlist", demo.UserList)
 }

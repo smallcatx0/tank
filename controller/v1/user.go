@@ -1,19 +1,29 @@
 package v1
 
 import (
-	"github.com/gin-gonic/gin"
 	"gtank/middleware/resp"
-	"gtank/models/page"
 	"gtank/valid"
+
+	"github.com/gin-gonic/gin"
 )
 
-func LoginByPwd(c *gin.Context) {
+type User struct{}
+
+// 手机号注册
+func (User) RegistByPhone(c *gin.Context) {
+
+}
+
+// 用户名密码登录
+func (User) LoginByPwd(c *gin.Context) {
 	param := valid.UserLogin{}
 	err := valid.BindAndCheck(c, &param)
 	if err != nil {
 		resp.Fail(c, err)
 		return
 	}
-	res := new(page.User).LoginByPwd()
-	resp.Succ(c, res)
+}
+
+func (User) Info(c *gin.Context) {
+
 }
