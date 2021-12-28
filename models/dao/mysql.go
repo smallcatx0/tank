@@ -1,10 +1,10 @@
 package dao
 
 import (
+	"gtank/internal/conf"
 	"log"
 	"time"
 
-	"gitee.com/smallcatx0/gtank/pkg/conf"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )

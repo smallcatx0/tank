@@ -4,7 +4,8 @@ import (
 	"log"
 	"time"
 
-	"gitee.com/smallcatx0/gtank/pkg/conf"
+	"gtank/internal/conf"
+
 	"github.com/go-redis/redis/v8"
 )
 

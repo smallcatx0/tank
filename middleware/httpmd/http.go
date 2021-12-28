@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"gitee.com/smallcatx0/gtank/pkg/conf"
-	glog "gitee.com/smallcatx0/gtank/pkg/glog"
+	"gtank/internal/conf"
+	glog "gtank/pkg/glog"
+
 	"github.com/gin-gonic/gin"
 	uuid "github.com/satori/go.uuid"
 )

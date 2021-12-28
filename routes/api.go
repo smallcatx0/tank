@@ -1,7 +1,7 @@
 package routes
 
 import (
-	v1 "gitee.com/smallcatx0/gtank/controller/v1"
+	v1 "gtank/controller/v1"
 
 	"github.com/gin-gonic/gin"
 )

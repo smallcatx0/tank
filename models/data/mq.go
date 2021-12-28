@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"time"
 
-	request "gitee.com/smallcatx0/gequest"
-	"gitee.com/smallcatx0/gtank/models/dao/rdb"
-	"gitee.com/smallcatx0/gtank/valid"
+	"gtank/models/dao/rdb"
+	"gtank/valid"
+
 	"github.com/gin-gonic/gin"
+	request "github.com/smallcatx0/gequest"
 )
 
 var RdbMq *rdb.Mq

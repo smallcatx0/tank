@@ -1,9 +1,10 @@
 package resp
 
 import (
-	"gitee.com/smallcatx0/gtank/middleware/httpmd"
-	"gitee.com/smallcatx0/gtank/pkg/conf"
-	"gitee.com/smallcatx0/gtank/pkg/glog"
+	"gtank/internal/conf"
+	"gtank/middleware/httpmd"
+	"gtank/pkg/glog"
+
 	"github.com/gin-gonic/gin"
 )
 

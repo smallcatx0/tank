@@ -1,10 +1,10 @@
 package bootstrap
 
 import (
-	"gitee.com/smallcatx0/gtank/models/dao"
-	"gitee.com/smallcatx0/gtank/models/data"
-	"gitee.com/smallcatx0/gtank/pkg/conf"
-	"gitee.com/smallcatx0/gtank/pkg/glog"
+	"gtank/internal/conf"
+	"gtank/models/dao"
+	"gtank/models/data"
+	"gtank/pkg/glog"
 )
 
 // InitConf 配置文件初始化

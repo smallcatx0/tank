@@ -5,11 +5,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"gitee.com/smallcatx0/gtank/middleware/resp"
-	"gitee.com/smallcatx0/gtank/models/data"
-	"gitee.com/smallcatx0/gtank/pkg/conf"
-	"gitee.com/smallcatx0/gtank/pkg/helper"
-	"gitee.com/smallcatx0/gtank/valid"
+	"gtank/internal/conf"
+	"gtank/middleware/resp"
+	"gtank/models/data"
+	"gtank/pkg/helper"
+	"gtank/valid"
+
 	"github.com/gin-gonic/gin"
 )
 

@@ -1,8 +1,8 @@
 package controller
 
 import (
-	"gitee.com/smallcatx0/gtank/bootstrap"
-	"gitee.com/smallcatx0/gtank/middleware/resp"
+	"gtank/bootstrap"
+	"gtank/middleware/resp"
 
 	"github.com/gin-gonic/gin"
 )

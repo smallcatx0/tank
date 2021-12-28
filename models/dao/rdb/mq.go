@@ -5,8 +5,9 @@ import (
 	"log"
 	"time"
 
-	"gitee.com/smallcatx0/gtank/models/dao"
-	"gitee.com/smallcatx0/gtank/pkg/glog"
+	"gtank/models/dao"
+	"gtank/pkg/glog"
+
 	"github.com/go-redis/redis/v8"
 )
 

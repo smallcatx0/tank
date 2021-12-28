@@ -3,7 +3,7 @@ package glog_test
 import (
 	"testing"
 
-	"gitee.com/smallcatx0/gtank/pkg/glog"
+	"gtank/pkg/glog"
 )
 
 func TestFile(t *testing.T) {

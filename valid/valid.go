@@ -1,8 +1,8 @@
 package valid
 
 import (
-	"gitee.com/smallcatx0/gtank/middleware/resp"
 	"github.com/gin-gonic/gin"
+	"gtank/middleware/resp"
 )
 
 type CustomValidor interface {

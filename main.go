@@ -1,10 +1,10 @@
 package main
 
 import (
-	"gitee.com/smallcatx0/gtank/bootstrap"
-	"gitee.com/smallcatx0/gtank/middleware/httpmd"
-	"gitee.com/smallcatx0/gtank/pkg/conf"
-	"gitee.com/smallcatx0/gtank/routes"
+	"gtank/bootstrap"
+	"gtank/internal/conf"
+	"gtank/middleware/httpmd"
+	"gtank/routes"
 )
 
 func init() {
