@@ -1,5 +1,5 @@
 # 基础配置
-app_name: "示例项目"
+app_name: gtank-demo
 debug: true
 env: dev # 可选 dev test pre prod
 desc: "这是示例项目"
@@ -21,6 +21,7 @@ redis:
   pool_size: 30
   max_reties: 3
   idle_timeout: 1000
+  prefix: project-prefix
 
 # 日志配置
 log:
