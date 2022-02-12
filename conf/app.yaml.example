@@ -13,6 +13,10 @@ mysql:
   maxOpenConns: 100
   connMaxLifetime: 6
 
+sqlite:
+  debug: true
+  path: ./db/data.db
+
 #主redis
 redis: 
   addr: redis-serv:6379

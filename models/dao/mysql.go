@@ -6,38 +6,77 @@ import (
 	"time"
 
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 var MDB *gorm.DB
 
-func MysqlInit() {
+func InitMysql() {
 	c := conf.AppConf
+	// 读配置
 	dsn := c.GetString("mysql.dsn")
-	debug := c.GetBool("mysql.debug")
+	isDebug := c.GetBool("mysql.debug")
 	maxIdleConns := c.GetInt("mysql.maxIdleConns")
 	maxOpenConns := c.GetInt("mysql.maxOpenConns")
 	connMaxLifetime := c.GetInt("mysql.connMaxLifetime")
 
-	Db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := ConnMysql(dsn, isDebug)
 	if err != nil {
-		log.Panic("[store_db] open connDB err ", err)
+		log.Panic("[store_mysql] conn mysql fail err=", err)
 	}
-	if debug {
-		Db = Db.Debug()
+	mdb, _ := db.DB()
+	if maxIdleConns != 0 {
+		mdb.SetMaxIdleConns(maxIdleConns)
 	}
-	sqlDb, err := Db.DB()
-	if err != nil {
-		log.Panic("[store_db] get mysqlDb err ", err)
+	if maxOpenConns != 0 {
+		mdb.SetMaxOpenConns(maxOpenConns)
 	}
-	sqlDb.SetMaxIdleConns(maxIdleConns)
-	sqlDb.SetMaxOpenConns(maxOpenConns)
-	sqlDb.SetConnMaxLifetime(time.Duration(connMaxLifetime) * time.Second)
+	if connMaxLifetime != 0 {
+		mdb.SetConnMaxLifetime(time.Duration(connMaxLifetime) * time.Second)
+	}
+	// 赋给全局变量
+	MDB = db
+}
 
-	err = sqlDb.Ping()
+func ConnMysql(dsn string, isDebug bool) (db *gorm.DB, err error) {
+	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Panic("[store_db] ping mysql err ", err)
+		return
 	}
-	log.Print("[store_db] ping mysql err ")
-	MDB = Db
+	if isDebug {
+		db = db.Debug()
+	}
+	mdb, err := db.DB()
+	if err != nil {
+		return
+	}
+	err = mdb.Ping()
+	if err != nil {
+		return
+	}
+	return
+}
+
+func InitSqlite() {
+
+}
+
+func ConnSqlite(fileName string, isDebug bool) (db *gorm.DB, err error) {
+	db, err = gorm.Open(sqlite.Open(fileName), &gorm.Config{})
+	if err != nil {
+		return
+	}
+	if isDebug {
+		db = db.Debug()
+	}
+	ldb, err := db.DB()
+	if err != nil {
+		return
+	}
+	err = ldb.Ping()
+	if err != nil {
+		return
+	}
+	return
 }
