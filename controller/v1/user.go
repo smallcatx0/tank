@@ -11,6 +11,14 @@ type User struct{}
 
 // 手机号注册
 func (User) RegistByPhone(c *gin.Context) {
+	param := struct {
+		Phone string `json:"phone" binding:"required"`
+	}{}
+	err := valid.BindAndCheck(c, &param)
+	if err != nil {
+		resp.Fail(c, err)
+		return
+	}
 
 }
 
