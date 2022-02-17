@@ -9,10 +9,14 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-var Rdb *redis.Client
+var (
+	Rdb         *redis.Client
+	CachePrefix string
+)
 
 func InitRedis() error {
 	c := conf.AppConf
+	CachePrefix = c.GetString("redis.prefix")
 	return ConnRedis(&redis.Options{
 		Addr:        c.GetString("redis.addr"),
 		DB:          c.GetInt("redis.db"),

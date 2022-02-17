@@ -3,7 +3,6 @@ package bootstrap
 import (
 	"gtank/internal/conf"
 	"gtank/models/dao"
-	"gtank/models/data"
 	"gtank/pkg/glog"
 )
 
@@ -30,10 +29,10 @@ func InitLog() {
 
 // InitDB 初始化db
 func InitDB() {
-	// dao.MysqlInit()
-	err := dao.InitRedis()
-	if err != nil {
-		panic(err)
-	}
-	data.InitSub(1)
+	dao.InitMysql()
+	// err := dao.InitRedis()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// data.InitSub(1)
 }

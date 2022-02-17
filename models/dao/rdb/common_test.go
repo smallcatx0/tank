@@ -1,12 +1,10 @@
 package rdb
 
 import (
-	"gtank/internal/conf"
 	"gtank/models/dao"
 	"testing"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,8 +13,7 @@ func RedisInit() {
 		Addr: "redis.serv:6379",
 		DB:   0,
 	})
-	conf.AppConf = viper.GetViper()
-	conf.AppConf.Set("redis.prefix", "tank")
+	dao.CachePrefix = "unitest"
 }
 
 func TestK(t *testing.T) {

@@ -19,7 +19,7 @@ func (User) RegistByPhone(c *gin.Context) {
 		resp.Fail(c, err)
 		return
 	}
-
+	resp.Succ(c, param)
 }
 
 // 用户名密码登录

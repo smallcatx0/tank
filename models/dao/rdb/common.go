@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"gtank/internal/conf"
 	"gtank/models/dao"
 )
 
@@ -49,7 +48,7 @@ func RateLimit(key string, sec, max int) bool {
 }
 
 func Remember(key string, f func() string, exp ...int) (string, error) {
-	key = K(conf.AppConf.GetString("redis.prefix"), key)
+	key = K(dao.CachePrefix, key)
 	cli := dao.Rdb
 	ret, err := cli.Get(cli.Context(), key).Result()
 	if err == nil {

@@ -2,4 +2,3 @@ vendor
 .vscode
 go.sum
 *.exe
-logs/*
