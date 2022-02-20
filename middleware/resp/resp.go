@@ -2,11 +2,13 @@ package resp
 
 import (
 	"gtank/internal/conf"
-	"gtank/middleware/httpmd"
 	"gtank/pkg/glog"
 
 	"github.com/gin-gonic/gin"
 )
+
+// RequestIDKey 唯一请求id
+const RequestIDKey = "x-b3-traceid"
 
 type body struct {
 	ErrCode   int         `json:"errcode"`
@@ -17,7 +19,7 @@ type body struct {
 
 func SuccJsonRaw(c *gin.Context, data string) {
 	format := `{"errcode":%d,"msg":"%s","data":%s,"request_id":"%s"}`
-	requestId := c.GetString(httpmd.RequestIDKey)
+	requestId := c.GetString(RequestIDKey)
 	c.Header("Content-Type", "application/json; charset=utf-8")
 	c.String(200, format, 200, "操作成功", data, requestId)
 }
@@ -46,7 +48,7 @@ func Response(c *gin.Context, err error) {
 			b.Msg = "服务错误"
 		}
 	}
-	b.RequestID = c.GetHeader(httpmd.RequestIDKey)
+	b.RequestID = c.GetHeader(RequestIDKey)
 	c.JSON(httpCode, &b)
 }
 

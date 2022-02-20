@@ -10,11 +10,13 @@ import (
 )
 
 var MDB *gorm.DB
+var MdbPrefix string
 
 func InitMysql() {
 	c := conf.AppConf
 	// 读配置
 	dsn := c.GetString("mysql.dsn")
+	MdbPrefix = c.GetString("mysql.prefix")
 	isDebug := c.GetBool("mysql.debug")
 	maxIdleConns := c.GetInt("mysql.maxIdleConns")
 	maxOpenConns := c.GetInt("mysql.maxOpenConns")

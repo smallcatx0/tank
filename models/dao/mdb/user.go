@@ -25,7 +25,7 @@ type User struct {
 }
 
 func (User) TableName() string {
-	return "users"
+	return dao.MdbPrefix + "users"
 }
 
 func (u *User) GetByPhone() (bool, error) {

@@ -2,6 +2,7 @@ package routes
 
 import (
 	v1 "gtank/controller/v1"
+	"gtank/middleware/httpmd"
 
 	"github.com/gin-gonic/gin"
 )
@@ -12,8 +13,11 @@ func registeRoute(router *gin.Engine) {
 	userRout := root.Group("/user")
 	user := v1.User{}
 	userRout.POST("/regist", user.RegistByPhone)
-	userRout.POST("/modify", user.Modify)
 	userRout.POST("/login", user.LoginByPwd)
+
+	userAuth := userRout.Use(httpmd.JwtAuth())
+	userAuth.POST("/modify", user.Modify)
+	userAuth.GET("/info", user.Info)
 
 	demo := v1.Demo{}
 	userRout.GET("/userlist", demo.UserList)

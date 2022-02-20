@@ -2,10 +2,13 @@ package resp
 
 const (
 	// http 状态码枚举
-	HttpOk   = 200
-	HttpErr  = 500
-	HttpFail = 400
+	HttpOk      = 200
+	HttpErr     = 500
+	HttpFail    = 400
+	HttpNoLogin = 401
+)
 
+var (
 	// errcode枚举
 	Code_Succ = 0
 	Code_Fail = 1
@@ -16,6 +19,9 @@ const (
 	Code_Rdb = 33000
 
 	Code_ParamInValid = 10000
+	Code_NoLogin      = 10004
+	Code_LoginTimeout = 10005
+	Code_IllegalToken = 10006
 )
 
 var ErrNos = map[int]string{
@@ -23,18 +29,16 @@ var ErrNos = map[int]string{
 	Code_Fail: "参数错误",
 	Code_Err:  "系统错误,请稍后再试",
 	Code_Mdb:  "mysql 连接错误",
-
-	Code_ParamInValid: "参数错误，请检查后重试",
 }
-
-var (
-	ErrMysql = NewException(HttpErr, Code_Mdb)
-	ErrRedis = NewException(HttpErr, Code_Rdb)
-)
 
 var (
 	// 参数错误
 	ParamInValid = func(msg string) *Exception {
-		return NewException(401, Code_ParamInValid, msg)
+		return NewException(HttpFail, Code_ParamInValid, msg)
 	}
+	ErrMysql     = NewException(HttpErr, Code_Mdb)
+	ErrRedis     = NewException(HttpErr, Code_Rdb)
+	NoLogin      = NewException(HttpNoLogin, Code_NoLogin, "未登录")
+	LoginTimeOut = NewException(HttpNoLogin, Code_LoginTimeout, "登录超时")
+	IllegalToken = NewException(HttpNoLogin, Code_IllegalToken, "token非法")
 )

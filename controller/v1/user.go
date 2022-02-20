@@ -5,6 +5,8 @@ import (
 	"gtank/models/dao"
 	"gtank/models/dao/mdb"
 	"gtank/valid"
+	"log"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -43,9 +45,26 @@ func (User) RegistByPhone(c *gin.Context) {
 		resp.Fail(c, err)
 		return
 	}
+	j := &valid.JWTData{
+		Uid:   strconv.Itoa(u.Id),
+		User:  u.User,
+		Phone: u.Phone,
+	}
+	token, err := j.Generate()
+	if err != nil {
+		resp.Fail(c, err)
+		return
+	}
 	resp.Succ(c, map[string]interface{}{
-		"id": u.Id,
+		"auth": token,
 	})
+}
+
+// 查看基本信息
+func (User) Info(c *gin.Context) {
+	log.Println(c.GetStringMapString("jwtinfo"))
+	// TODO: gin.Context 写进去了 读不到
+	resp.Succ(c, c.GetStringMapString("jwtinfo"))
 }
 
 // 修改基本信息
@@ -61,8 +80,4 @@ func (User) LoginByPwd(c *gin.Context) {
 		resp.Fail(c, err)
 		return
 	}
-}
-
-func (User) Info(c *gin.Context) {
-
 }
