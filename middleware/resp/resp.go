@@ -26,6 +26,11 @@ func Response(c *gin.Context, err error) {
 	var httpCode int
 	b := body{}
 	switch e := err.(type) {
+	case *Exception:
+		httpCode = e.HTTPCode
+		b.ErrCode = e.ErrCode
+		b.Msg = e.Msg
+		b.Data = e.Data
 	case Exception:
 		httpCode = e.HTTPCode
 		b.ErrCode = e.ErrCode

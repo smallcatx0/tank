@@ -2,6 +2,10 @@ package mdb
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
+	"gtank/models/dao"
+	"strconv"
 
 	"gorm.io/gorm"
 )
@@ -22,4 +26,26 @@ type User struct {
 
 func (User) TableName() string {
 	return "users"
+}
+
+func (u *User) GetByPhone() (bool, error) {
+	q := dao.MDB.Where("phone=?", u.Phone)
+	if u.Id != 0 {
+		q = q.Where("id <> ?", u.Id)
+	}
+	err := q.First(&u).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (u *User) AutoUseName() string {
+	// 取手机后四位=>转16进制
+	p, _ := strconv.ParseInt(u.Phone[5:], 10, 64)
+	fmt.Print(u.Phone, "  ", p)
+	return fmt.Sprintf("gtank_%X", p)
 }

@@ -12,6 +12,7 @@ func registeRoute(router *gin.Engine) {
 	userRout := root.Group("/user")
 	user := v1.User{}
 	userRout.POST("/regist", user.RegistByPhone)
+	userRout.POST("/modify", user.Modify)
 	userRout.POST("/login", user.LoginByPwd)
 
 	demo := v1.Demo{}

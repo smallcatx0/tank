@@ -15,3 +15,11 @@ func (u *UserLogin) Valid() error {
 	}
 	return nil
 }
+
+type UserModify struct {
+	User     string `json:"user"`
+	Pass     string `json:"pass"`
+	Nickname string `json:"nickname"`
+	Truename string `json:"truename"`
+	Email    string `json:"email"`
+}

@@ -2,6 +2,8 @@ package v1
 
 import (
 	"gtank/middleware/resp"
+	"gtank/models/dao"
+	"gtank/models/dao/mdb"
 	"gtank/valid"
 
 	"github.com/gin-gonic/gin"
@@ -19,7 +21,36 @@ func (User) RegistByPhone(c *gin.Context) {
 		resp.Fail(c, err)
 		return
 	}
-	resp.Succ(c, param)
+	// 先判断手机号是否存在
+	u := &mdb.User{
+		Phone: param.Phone,
+	}
+	exist, err := u.GetByPhone()
+	if err != nil {
+		resp.Fail(c, err)
+		return
+	}
+	if exist {
+		resp.Fail(c, resp.ParamInValid("手机号已经存在"))
+		return
+	}
+	u = &mdb.User{
+		Phone: param.Phone,
+	}
+	u.User = u.AutoUseName() // 自动生成用户名
+	err = dao.MDB.Create(u).Error
+	if err != nil {
+		resp.Fail(c, err)
+		return
+	}
+	resp.Succ(c, map[string]interface{}{
+		"id": u.Id,
+	})
+}
+
+// 修改基本信息
+func (User) Modify(c *gin.Context) {
+
 }
 
 // 用户名密码登录
