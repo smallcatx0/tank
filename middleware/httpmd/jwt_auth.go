@@ -3,6 +3,7 @@ package httpmd
 import (
 	"gtank/middleware/resp"
 	"gtank/valid"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -10,7 +11,7 @@ import (
 func JwtAuth() func(c *gin.Context) {
 
 	return func(c *gin.Context) {
-		token := c.GetHeader("Authorization")
+		token := strings.TrimSpace(c.GetHeader("Authorization"))
 		if token == "" {
 			resp.Fail(c, resp.NoLogin)
 			c.Abort()

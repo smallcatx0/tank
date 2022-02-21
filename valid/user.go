@@ -2,6 +2,7 @@ package valid
 
 import (
 	"gtank/middleware/resp"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -74,12 +75,26 @@ func JWTPase(token string) (*Claim, error) {
 	return nil, resp.IllegalToken
 }
 
-// 从context中取回用户信息
-func GetUserInfo(c *gin.Context) (*JWTData, bool) {
+// 获取jwt中的用户信息
+func UserInfo(c *gin.Context) (*JWTData, bool) {
 	data, ok := c.Get("jwtinfo")
 	if !ok {
-		return nil, false
+		// 解析
+		return UserInfoPase(c)
 	}
 	ret, ok := data.(JWTData)
 	return &ret, ok
+}
+
+func UserInfoPase(c *gin.Context) (*JWTData, bool) {
+	tokenStr := strings.TrimSpace(c.GetHeader("Authorization"))
+	if tokenStr == "" {
+		return nil, false
+	}
+	raw, err := JWTPase(tokenStr)
+	if err != nil {
+		return nil, false
+	}
+	c.Set("jwtinfo", raw.JWTData)
+	return &raw.JWTData, true
 }

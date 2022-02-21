@@ -6,6 +6,7 @@ import (
 	"gtank/models/dao/mdb"
 	"gtank/valid"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -61,9 +62,26 @@ func (User) RegistByPhone(c *gin.Context) {
 
 // 查看基本信息
 func (User) Info(c *gin.Context) {
-	u, ok := valid.GetUserInfo(c)
+	t, ok := valid.UserInfo(c)
 	if !ok {
 		resp.Fail(c, resp.NoLogin)
+		return
+	}
+	type User struct {
+		Id        int       `gorm:"column:id" json:"id"`
+		User      string    `gorm:"column:user" json:"user"`             //账号            //密码
+		Nickname  string    `gorm:"column:nickname" json:"nickname"`     //昵称
+		Truename  string    `gorm:"column:truename" json:"truename"`     //真实姓名
+		Phone     string    `gorm:"column:phone" json:"phone"`           //手机号
+		Email     string    `gorm:"column:email" json:"email"`           //电子邮箱
+		Status    int8      `gorm:"column:status" json:"status"`         //状态
+		CreatedAt time.Time `gorm:"column:created_at" json:"created_at"` //创建时间
+		UpdatedAt time.Time `gorm:"column:updated_at" json:"updated_at"`
+	}
+	u := User{}
+	err := dao.MDB.First(&u, t.Uid).Error
+	if err != nil {
+		resp.Fail(c, err)
 	}
 	resp.Succ(c, u)
 }
