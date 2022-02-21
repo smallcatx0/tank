@@ -4,6 +4,7 @@ import (
 	"gtank/middleware/resp"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -71,4 +72,14 @@ func JWTPase(token string) (*Claim, error) {
 		return data, nil
 	}
 	return nil, resp.IllegalToken
+}
+
+// 从context中取回用户信息
+func GetUserInfo(c *gin.Context) (*JWTData, bool) {
+	data, ok := c.Get("jwtinfo")
+	if !ok {
+		return nil, false
+	}
+	ret, ok := data.(JWTData)
+	return &ret, ok
 }

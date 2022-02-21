@@ -5,7 +5,6 @@ import (
 	"gtank/models/dao"
 	"gtank/models/dao/mdb"
 	"gtank/valid"
-	"log"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -62,9 +61,11 @@ func (User) RegistByPhone(c *gin.Context) {
 
 // 查看基本信息
 func (User) Info(c *gin.Context) {
-	log.Println(c.GetStringMapString("jwtinfo"))
-	// TODO: gin.Context 写进去了 读不到
-	resp.Succ(c, c.GetStringMapString("jwtinfo"))
+	u, ok := valid.GetUserInfo(c)
+	if !ok {
+		resp.Fail(c, resp.NoLogin)
+	}
+	resp.Succ(c, u)
 }
 
 // 修改基本信息
