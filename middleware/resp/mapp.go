@@ -6,6 +6,7 @@ const (
 	HttpErr     = 500
 	HttpFail    = 400
 	HttpNoLogin = 401
+	HttpIllegal = 403
 )
 
 var (
@@ -22,6 +23,7 @@ var (
 	Code_NoLogin      = 10004
 	Code_LoginTimeout = 10005
 	Code_IllegalToken = 10006
+	Code_Illegal      = 40003
 )
 
 var ErrNos = map[int]string{
@@ -41,4 +43,5 @@ var (
 	NoLogin      = NewException(HttpNoLogin, Code_NoLogin, "未登录")
 	LoginTimeOut = NewException(HttpNoLogin, Code_LoginTimeout, "登录超时")
 	IllegalToken = NewException(HttpNoLogin, Code_IllegalToken, "token非法")
+	Illegal      = NewException(HttpIllegal, Code_Illegal, "非法操作")
 )

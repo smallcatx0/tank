@@ -10,7 +10,7 @@ import (
 
 func Test_jwtGenerate(t *testing.T) {
 	j := &valid.JWTData{
-		Uid:   "12",
+		Uid:   12,
 		Phone: "18681636749",
 	}
 	s, err := j.Generate()

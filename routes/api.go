@@ -16,8 +16,8 @@ func registeRoute(router *gin.Engine) {
 	userRout.POST("/login", user.LoginByPwd)
 
 	userAuth := userRout.Use(httpmd.JwtAuth())
-	userAuth.POST("/modify", user.Modify)
 	userAuth.GET("/info", user.Info)
+	userAuth.GET("/modpass", user.ModPass)
 
 	demo := v1.Demo{}
 	userRout.GET("/userlist", demo.UserList)

@@ -7,7 +7,12 @@ import (
 	"gtank/models/dao"
 	"strconv"
 
+	"github.com/duke-git/lancet/cryptor"
 	"gorm.io/gorm"
+)
+
+const (
+	User_passsalt = "123123"
 )
 
 type User struct {
@@ -48,4 +53,17 @@ func (u *User) AutoUseName() string {
 	p, _ := strconv.ParseInt(u.Phone[5:], 10, 64)
 	fmt.Print(u.Phone, "  ", p)
 	return fmt.Sprintf("gtank_%X", p)
+}
+
+// 密码加密
+func (u *User) passEncry(p string) string {
+	return cryptor.Md5String(u.User + User_passsalt + p)
+}
+
+func (u *User) PassEq(pass string) bool {
+	return u.Pass == u.passEncry(pass)
+}
+
+func (u *User) SetPass(pass string) {
+	u.Pass = u.passEncry(pass)
 }

@@ -10,7 +10,7 @@ type CustomValidor interface {
 	Valid() error
 }
 
-func BindAndCheck(c *gin.Context, param interface{}) error {
+func BindJsonAndCheck(c *gin.Context, param interface{}) error {
 	err := c.ShouldBindJSON(param)
 	if err != nil {
 		return resp.ParamInValid("json解析失败 " + err.Error())

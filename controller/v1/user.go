@@ -5,7 +5,7 @@ import (
 	"gtank/models/dao"
 	"gtank/models/dao/mdb"
 	"gtank/valid"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,10 +15,8 @@ type User struct{}
 
 // 手机号注册
 func (User) RegistByPhone(c *gin.Context) {
-	param := struct {
-		Phone string `json:"phone" binding:"required"`
-	}{}
-	err := valid.BindAndCheck(c, &param)
+	param := valid.PhoneReg{}
+	err := valid.BindJsonAndCheck(c, &param)
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -46,7 +44,7 @@ func (User) RegistByPhone(c *gin.Context) {
 		return
 	}
 	j := &valid.JWTData{
-		Uid:   strconv.Itoa(u.Id),
+		Uid:   u.Id,
 		User:  u.User,
 		Phone: u.Phone,
 	}
@@ -82,19 +80,63 @@ func (User) Info(c *gin.Context) {
 	err := dao.MDB.First(&u, t.Uid).Error
 	if err != nil {
 		resp.Fail(c, err)
+		return
 	}
 	resp.Succ(c, u)
 }
 
-// 修改基本信息
-func (User) Modify(c *gin.Context) {
+// 修改密码
+func (User) ModPass(c *gin.Context) {
+	param := valid.ModPass{}
+	err := valid.BindJsonAndCheck(c, &param)
+	if err != nil {
+		resp.Fail(c, err)
+		return
+	}
+	t, ok := valid.UserInfo(c)
+	if !ok {
+		resp.Fail(c, resp.NoLogin)
+		return
+	}
+	u := mdb.User{}
+	err = dao.MDB.First(&u, t.Uid).Error
+	if err != nil {
+		resp.Fail(c, err)
+		return
+	}
+	switch strings.ToLower(param.Type) {
+	case "pass":
+		// 数据库查询旧密码对比
+		if u.Pass != "" && !u.PassEq(param.Pass) {
+			resp.Fail(c, resp.ParamInValid("密码错误"))
+			return
+		}
+		u.SetPass(param.Pass)
 
+	case "phone":
+		if u.Phone != param.Phone {
+			resp.Fail(c, resp.Illegal)
+			return
+		}
+	case "email":
+		if u.Email != param.Email {
+			resp.Fail(c, resp.Illegal)
+			return
+		}
+	}
+	err = dao.MDB.Updates(&u).Error
+	if err != nil {
+		resp.Fail(c, err)
+		return
+	}
+	resp.Succ(c, nil)
+	return
 }
 
 // 用户名密码登录
 func (User) LoginByPwd(c *gin.Context) {
 	param := valid.UserLogin{}
-	err := valid.BindAndCheck(c, &param)
+	err := valid.BindJsonAndCheck(c, &param)
 	if err != nil {
 		resp.Fail(c, err)
 		return
