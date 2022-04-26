@@ -1,13 +1,6 @@
 package resp
 
-const (
-	// http 状态码枚举
-	HttpOk      = 200
-	HttpErr     = 500
-	HttpFail    = 400
-	HttpNoLogin = 401
-	HttpIllegal = 403
-)
+import "net/http"
 
 var (
 	// errcode枚举
@@ -35,13 +28,14 @@ var ErrNos = map[int]string{
 
 var (
 	// 参数错误
-	ParamInValid = func(msg string) *Exception {
-		return NewException(HttpFail, Code_ParamInValid, msg)
+	ParamInValid = func(msg ...string) *Exception {
+		return NewException(http.StatusBadRequest, Code_ParamInValid, msg...)
 	}
-	ErrMysql     = NewException(HttpErr, Code_Mdb)
-	ErrRedis     = NewException(HttpErr, Code_Rdb)
-	NoLogin      = NewException(HttpNoLogin, Code_NoLogin, "未登录")
-	LoginTimeOut = NewException(HttpNoLogin, Code_LoginTimeout, "登录超时")
-	IllegalToken = NewException(HttpNoLogin, Code_IllegalToken, "token非法")
-	Illegal      = NewException(HttpIllegal, Code_Illegal, "非法操作")
+
+	ErrMysql     = NewException(http.StatusInternalServerError, Code_Mdb)
+	ErrRedis     = NewException(http.StatusInternalServerError, Code_Rdb)
+	NoLogin      = NewException(http.StatusUnauthorized, Code_NoLogin, "未登录")
+	LoginTimeOut = NewException(http.StatusUnauthorized, Code_LoginTimeout, "登录超时")
+	IllegalToken = NewException(http.StatusUnauthorized, Code_IllegalToken, "token非法")
+	Illegal      = NewException(http.StatusForbidden, Code_Illegal, "非法操作")
 )

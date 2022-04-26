@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func registeRoute(router *gin.Engine) {
+func registeApi(router *gin.Engine) {
 	root := router.Group("/v1")
 
 	userRout := root.Group("/user")

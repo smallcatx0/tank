@@ -14,9 +14,15 @@ func Register(r *gin.Engine) {
 		c.String(200, v)
 	}) // version
 	health := controller.Health{}
-	r.GET("/healthz", health.Healthz)
-	r.GET("/ready", health.Ready)
-	r.GET("/reload", health.ReloadConf)
-	r.GET("/test", health.Test)
-	registeRoute(r)
+	{
+		r.GET("/healthz", health.Healthz)
+		r.GET("/ready", health.Ready)
+		r.GET("/reload", health.ReloadConf)
+		r.GET("/test", health.Test)
+	}
+
+	// 注册对外接口
+	registeApi(r)
+	// 注册admin接口
+	registAdmin(r)
 }
