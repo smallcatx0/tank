@@ -1,0 +1,68 @@
+//
+@baseurl = http://127.0.0.1:8081
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NTU4Njg3NDMsInVpZCI6NCwidXNlciI6ImQ1YmZfOWI3NDYiLCJwaG9uZSI6IjE4NjgxNjM2NzQyIn0.G7Ks2Z8BCBijWvjNUBjWpnK2NNeMYmvBgFsr7kA_-Og
+
+###
+// 健康检查
+GET {{baseurl}}/healthz
+
+###
+// 服务探活 
+GET {{baseurl}}/ready
+
+###
+// 手机号快速注册
+POST {{baseurl}}/v1/user/regist
+
+{
+    "phone":"18681636742",
+    "code": "123456"
+}
+
+###
+// 手机号登录
+POST {{baseurl}}/v1/user/k-login
+
+{
+    "phone":"18681636742",
+    "code": "123456"
+}
+
+###
+// 用户基本信息
+GET {{baseurl}}/v1/user/info
+Authorization: {{token}}
+
+###
+// 修改密码-手机号
+POST {{baseurl}}/v1/user/modpass
+Authorization: {{token}}
+
+{
+    "type":"phone",
+    "phone":"18681636742",
+    "code":"123456",
+    "pass":"123123"
+}
+
+###
+// 修改密码-旧密码
+POST {{baseurl}}/v1/user/modpass
+
+{
+    "type":"phone",
+    "phone":"18681636742",
+    "code":"123456",
+    "pass":"123123"
+}
+
+###
+// 修改密码-邮箱
+POST {{baseurl}}/v1/user/modpass
+
+{
+    "type":"phone",
+    "phone":"18681636742",
+    "code":"123456",
+    "pass":"123123"
+}

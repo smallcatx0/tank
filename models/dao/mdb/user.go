@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/duke-git/lancet/cryptor"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -51,8 +52,8 @@ func (u *User) GetByPhone() (bool, error) {
 func (u *User) AutoUseName() string {
 	// 取手机后四位=>转16进制
 	p, _ := strconv.ParseInt(u.Phone[5:], 10, 64)
-	fmt.Print(u.Phone, "  ", p)
-	return fmt.Sprintf("gtank_%X", p)
+	id := uuid.NewString()[0:4]
+	return fmt.Sprintf("%s_%x", id, p)
 }
 
 // 密码加密

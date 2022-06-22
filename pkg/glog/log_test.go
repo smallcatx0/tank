@@ -46,7 +46,7 @@ func TestCons(t *testing.T) {
 	glog.InitLog2std("info")
 	glog.Debug("不会被打出来的日志")
 	glog.SetAtomLevel("debug")
-	glog.Debug("会被打出来的 debug日志", "requestId", "extra1", "extra2")
-	glog.Panic("Panic日志", "requestId", "extra1", "extra2")
+	glog.Debug("会被打出来的debug日志", "requestId=0981837", "extra1", "extra2")
+	glog.Panic("Panic日志", "requestId=192318021378", "extra1", "extra2")
 	t.Log("test ok")
 }

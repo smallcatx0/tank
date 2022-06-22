@@ -19,7 +19,9 @@ var (
 )
 
 func InitLog2std(level string) {
-	consoleEncoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+	encoderConf := zap.NewProductionEncoderConfig()
+	encoderConf.EncodeTime = zapcore.ISO8601TimeEncoder
+	consoleEncoder := zapcore.NewConsoleEncoder(encoderConf)
 	SetAtomLevel(level)
 	core := zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), Level)
 	ZapLoger = zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))

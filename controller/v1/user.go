@@ -58,6 +58,41 @@ func (User) RegistByPhone(c *gin.Context) {
 	})
 }
 
+// 手机号登录
+func (User) LoginByPhone(c *gin.Context) {
+	param := valid.PhoneReg{}
+	err := valid.BindJsonAndCheck(c, &param)
+	if err != nil {
+		resp.Fail(c, err)
+		return
+	}
+	u := &mdb.User{
+		Phone: param.Phone,
+	}
+	exist, err := u.GetByPhone()
+	if err != nil {
+		resp.Fail(c, err)
+		return
+	}
+	if !exist {
+		resp.Fail(c, resp.ParamInValid("未注册"))
+		return
+	}
+	j := &valid.JWTData{
+		Uid:   u.Id,
+		User:  u.User,
+		Phone: u.Phone,
+	}
+	token, err := j.Generate()
+	if err != nil {
+		resp.Fail(c, err)
+		return
+	}
+	resp.Succ(c, map[string]interface{}{
+		"auth": token,
+	})
+}
+
 // 查看基本信息
 func (User) Info(c *gin.Context) {
 	t, ok := valid.UserInfo(c)
@@ -105,6 +140,11 @@ func (User) ModPass(c *gin.Context) {
 		return
 	}
 	switch strings.ToLower(param.Type) {
+	case "phone":
+		if u.Phone != param.Phone {
+			resp.Fail(c, resp.Illegal)
+			return
+		}
 	case "pass":
 		// 数据库查询旧密码对比
 		if u.Pass != "" && !u.PassEq(param.Pass) {
@@ -112,25 +152,19 @@ func (User) ModPass(c *gin.Context) {
 			return
 		}
 		u.SetPass(param.Pass)
-
-	case "phone":
-		if u.Phone != param.Phone {
-			resp.Fail(c, resp.Illegal)
-			return
-		}
 	case "email":
 		if u.Email != param.Email {
 			resp.Fail(c, resp.Illegal)
 			return
 		}
 	}
-	err = dao.MDB.Updates(&u).Error
+	u.Pass = param.Pass
+	err = dao.MDB.Updates(&u).Select("pass").Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
 	}
 	resp.Succ(c, nil)
-	return
 }
 
 // 用户名密码登录

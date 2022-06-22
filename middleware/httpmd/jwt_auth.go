@@ -19,10 +19,12 @@ func JwtAuth() func(c *gin.Context) {
 		}
 		data, err := valid.JWTPase(token)
 		if err != nil {
+			// TODO: jwt解析失败错误处理
 			resp.Fail(c, err)
 			c.Abort()
 			return
 		}
+		// c.Header("x-user-")
 		c.Set("jwtinfo", data.JWTData)
 	}
 }
