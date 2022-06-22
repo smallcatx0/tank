@@ -1,6 +1,6 @@
 //
 @baseurl = http://127.0.0.1:8081
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NTU4Njg3NDMsInVpZCI6NCwidXNlciI6ImQ1YmZfOWI3NDYiLCJwaG9uZSI6IjE4NjgxNjM2NzQyIn0.G7Ks2Z8BCBijWvjNUBjWpnK2NNeMYmvBgFsr7kA_-Og
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NTU4OTA4NjgsInVpZCI6MywidXNlciI6Imd0YW5rXzVmNTc3NDliNzQ1IiwicGhvbmUiOiIxODY4MTYzNjc0MSJ9.ZjijZ3j-Fp80iZNmEPiAfR3qC7V8oM0SeZprV8LGfdk
 
 ###
 // 健康检查
@@ -24,7 +24,7 @@ POST {{baseurl}}/v1/user/regist
 POST {{baseurl}}/v1/user/k-login
 
 {
-    "phone":"18681636742",
+    "phone":"18681636741",
     "code": "123456"
 }
 
@@ -48,21 +48,33 @@ Authorization: {{token}}
 ###
 // 修改密码-旧密码
 POST {{baseurl}}/v1/user/modpass
+Authorization: {{token}}
 
 {
-    "type":"phone",
-    "phone":"18681636742",
-    "code":"123456",
-    "pass":"123123"
+    "type":"pass",
+    "old_pass":"123123",
+    "pass":"123456"
 }
 
 ###
 // 修改密码-邮箱
 POST {{baseurl}}/v1/user/modpass
+Authorization: {{token}}
 
 {
-    "type":"phone",
-    "phone":"18681636742",
+    "type":"email",
+    "email":"123@adm.com",
     "code":"123456",
     "pass":"123123"
 }
+
+###
+// 账号密码登录
+POST {{baseurl}}/v1/user/login
+
+{
+    "user":"d5bf_9b746",
+    "pass":"123456"
+}
+
+###

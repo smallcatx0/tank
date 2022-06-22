@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"gtank/middleware/resp"
 	"gtank/models/dao"
 	"gtank/models/dao/mdb"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type User struct{}
@@ -43,12 +45,7 @@ func (User) RegistByPhone(c *gin.Context) {
 		resp.Fail(c, err)
 		return
 	}
-	j := &valid.JWTData{
-		Uid:   u.Id,
-		User:  u.User,
-		Phone: u.Phone,
-	}
-	token, err := j.Generate()
+	token, err := grantToken(*u)
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -56,6 +53,15 @@ func (User) RegistByPhone(c *gin.Context) {
 	resp.Succ(c, map[string]interface{}{
 		"auth": token,
 	})
+}
+
+func grantToken(u mdb.User) (string, error) {
+	j := &valid.JWTData{
+		Uid:   u.Id,
+		User:  u.User,
+		Phone: u.Phone,
+	}
+	return j.Generate()
 }
 
 // 手机号登录
@@ -78,12 +84,39 @@ func (User) LoginByPhone(c *gin.Context) {
 		resp.Fail(c, resp.ParamInValid("未注册"))
 		return
 	}
-	j := &valid.JWTData{
-		Uid:   u.Id,
-		User:  u.User,
-		Phone: u.Phone,
+	token, err := grantToken(*u)
+	if err != nil {
+		resp.Fail(c, err)
+		return
 	}
-	token, err := j.Generate()
+	resp.Succ(c, map[string]interface{}{
+		"auth": token,
+	})
+}
+
+// 用户名密码登录
+func (User) LoginByPwd(c *gin.Context) {
+	p := valid.UserLogin{}
+	err := valid.BindJsonAndCheck(c, &p)
+	if err != nil {
+		resp.Fail(c, err)
+		return
+	}
+	u := &mdb.User{}
+	err = dao.MDB.First(&u, "user=?", p.User).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		resp.Fail(c, resp.ParamInValid("用户名或密码错误"))
+		return
+	}
+	if err != nil {
+		resp.Fail(c, err)
+		return
+	}
+	if !u.PassEq(p.Pass) {
+		resp.Fail(c, resp.ParamInValid("用户名或密码错误"))
+		return
+	}
+	token, err := grantToken(*u)
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -133,8 +166,8 @@ func (User) ModPass(c *gin.Context) {
 		resp.Fail(c, resp.NoLogin)
 		return
 	}
-	u := mdb.User{}
-	err = dao.MDB.First(&u, t.Uid).Error
+	u := &mdb.User{}
+	err = dao.MDB.First(u, t.Uid).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -147,32 +180,21 @@ func (User) ModPass(c *gin.Context) {
 		}
 	case "pass":
 		// 数据库查询旧密码对比
-		if u.Pass != "" && !u.PassEq(param.Pass) {
+		if u.Pass != "" && !u.PassEq(param.OldPass) {
 			resp.Fail(c, resp.ParamInValid("密码错误"))
 			return
 		}
-		u.SetPass(param.Pass)
 	case "email":
 		if u.Email != param.Email {
 			resp.Fail(c, resp.Illegal)
 			return
 		}
 	}
-	u.Pass = param.Pass
-	err = dao.MDB.Updates(&u).Select("pass").Error
+	u.SetPass(param.Pass)
+	err = dao.MDB.Select("pass").Updates(u).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
 	}
 	resp.Succ(c, nil)
-}
-
-// 用户名密码登录
-func (User) LoginByPwd(c *gin.Context) {
-	param := valid.UserLogin{}
-	err := valid.BindJsonAndCheck(c, &param)
-	if err != nil {
-		resp.Fail(c, err)
-		return
-	}
 }

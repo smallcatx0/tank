@@ -105,7 +105,7 @@ func (j *JWTData) Generate() (string, error) {
 		StandardClaims: &jwt.StandardClaims{},
 	}
 	// 设置过期时间 3600s
-	c.ExpiresAt = time.Now().Add(5 * time.Minute).Unix()
+	c.ExpiresAt = time.Now().Add(time.Hour).Unix()
 	c.JWTData = *j
 	t.Claims = c
 	return t.SignedString([]byte("sk"))
@@ -116,7 +116,7 @@ func JWTPase(token string) (*Claim, error) {
 		return []byte("sk"), nil
 	})
 	if err != nil {
-		if e, ok := err.(jwt.ValidationError); ok {
+		if e, ok := err.(*jwt.ValidationError); ok {
 			if e.Errors&jwt.ValidationErrorExpired != 0 {
 				return nil, resp.LoginTimeOut
 			} else {
@@ -134,7 +134,7 @@ func JWTPase(token string) (*Claim, error) {
 
 // 获取jwt中的用户信息
 func UserInfo(c *gin.Context) (*JWTData, bool) {
-	data, ok := c.Get("jwtinfo")
+	data, ok := c.Get("xu-info")
 	if !ok {
 		// 解析
 		return UserInfoPase(c)

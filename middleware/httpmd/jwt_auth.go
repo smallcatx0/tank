@@ -1,15 +1,16 @@
 package httpmd
 
 import (
+	"encoding/json"
 	"gtank/middleware/resp"
 	"gtank/valid"
+	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 func JwtAuth() func(c *gin.Context) {
-
 	return func(c *gin.Context) {
 		token := strings.TrimSpace(c.GetHeader("Authorization"))
 		if token == "" {
@@ -18,13 +19,16 @@ func JwtAuth() func(c *gin.Context) {
 			return
 		}
 		data, err := valid.JWTPase(token)
-		if err != nil {
-			// TODO: jwt解析失败错误处理
-			resp.Fail(c, err)
-			c.Abort()
+		if err == nil {
+			// 将解析信息写入header
+			raw, _ := json.Marshal(data.JWTData)
+			p := url.QueryEscape(string(raw))
+			c.Request.Header.Add("xu-info", p)
+			c.Set("xu-info", data.JWTData)
 			return
 		}
-		// c.Header("x-user-")
-		c.Set("jwtinfo", data.JWTData)
+		resp.Fail(c, err)
+		c.Abort()
+
 	}
 }

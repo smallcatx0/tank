@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
+	"strings"
 
 	"gtank/internal/conf"
 	glog "gtank/pkg/glog"
@@ -26,10 +27,11 @@ func SetHeader(c *gin.Context) {
 	c.Header("Content-Type", "application/json; charset=utf-8")
 	requestID := c.GetHeader(RequestIDKey)
 	if requestID == "" {
-		c.Set(RequestIDKey, uuid.NewV4().String())
-	} else {
-		c.Set(RequestIDKey, requestID)
+		requestID = uuid.NewV4().String()
+		requestID = strings.Replace(requestID, "-", "", -1)
 	}
+	c.Set(RequestIDKey, requestID)
+	c.Header(RequestIDKey, requestID)
 }
 
 // ReqLog 记录全量请求日志
