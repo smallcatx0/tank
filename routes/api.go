@@ -19,7 +19,5 @@ func registeApi(router *gin.Engine) {
 	userAuth := userRout.Use(httpmd.JwtAuth())
 	userAuth.GET("/info", user.Info)
 	userAuth.POST("/modpass", user.ModPass)
-
-	demo := v1.Demo{}
-	userRout.GET("/userlist", demo.UserList)
+	userAuth.POST("/modinfo", user.ModInfo)
 }

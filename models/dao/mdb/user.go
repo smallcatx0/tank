@@ -39,6 +39,17 @@ func (u *User) GetByPhone() (bool, error) {
 	if u.Id != 0 {
 		q = q.Where("id <> ?", u.Id)
 	}
+	return u.queryOne(q)
+}
+func (u *User) GetByUser() (bool, error) {
+	q := dao.MDB.Where("user=?", u.User)
+	if u.Id != 0 {
+		q = q.Where("id <> ?", u.Id)
+	}
+	return u.queryOne(q)
+}
+
+func (u *User) queryOne(q *gorm.DB) (bool, error) {
 	err := q.First(&u).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, nil

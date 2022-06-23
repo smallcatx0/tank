@@ -85,6 +85,12 @@ func (p *ModPass) Valid() error {
 	return nil
 }
 
+type UserInfoModParam struct {
+	User     string `json:"user"`
+	Nickname string `json:"nickname"`
+	Truename string `json:"truename"`
+}
+
 // token中携带的数据
 type JWTData struct {
 	Uid      int    `json:"uid,omitempty"`

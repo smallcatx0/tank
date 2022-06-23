@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"errors"
 	"gtank/middleware/resp"
 	"gtank/models/dao"
 	"gtank/models/dao/mdb"
@@ -10,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type User struct{}
@@ -102,14 +100,14 @@ func (User) LoginByPwd(c *gin.Context) {
 		resp.Fail(c, err)
 		return
 	}
-	u := &mdb.User{}
-	err = dao.MDB.First(&u, "user=?", p.User).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		resp.Fail(c, resp.ParamInValid("用户名或密码错误"))
-		return
-	}
+	u := &mdb.User{User: p.User}
+	ok, err := u.GetByUser()
 	if err != nil {
 		resp.Fail(c, err)
+		return
+	}
+	if !ok {
+		resp.Fail(c, resp.ParamInValid("用户名或密码错误"))
 		return
 	}
 	if !u.PassEq(p.Pass) {
@@ -197,4 +195,58 @@ func (User) ModPass(c *gin.Context) {
 		return
 	}
 	resp.Succ(c, nil)
+}
+
+// 编辑基础信息
+func (User) ModInfo(c *gin.Context) {
+	t, ok := valid.UserInfo(c)
+	if !ok {
+		resp.Fail(c, resp.NoLogin)
+		return
+	}
+	p := valid.UserInfoModParam{}
+	err := valid.BindJsonAndCheck(c, &p)
+	if err != nil {
+		resp.Fail(c, err)
+		return
+	}
+	u := &mdb.User{}
+	// 判断user是否存在
+	if p.User != "" {
+		u.Id = t.Uid
+		u.User = p.User
+		ok, err := u.GetByUser()
+		if err != nil {
+			resp.Fail(c, err)
+			return
+		}
+		if ok {
+			resp.Fail(c, resp.ParamInValid("用户名已存在"))
+			return
+		}
+	}
+	err = dao.MDB.First(u, t.Uid).Error
+	if err != nil {
+		resp.Fail(c, err)
+		return
+	}
+	if p.Nickname != "" {
+		u.Nickname = p.Nickname
+	}
+	if p.Truename != "" {
+		u.Truename = p.Truename
+	}
+	if p.User != "" {
+		u.User = p.User
+	}
+	res := dao.MDB.
+		Select("nickname", "truename", "user").
+		Updates(u)
+	if res.Error != nil {
+		resp.Fail(c, res.Error)
+		return
+	}
+	resp.Succ(c, map[string]interface{}{
+		"col": res.RowsAffected,
+	})
 }

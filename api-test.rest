@@ -1,8 +1,7 @@
 //
 @baseurl = http://127.0.0.1:8081
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NTU4OTA4NjgsInVpZCI6MywidXNlciI6Imd0YW5rXzVmNTc3NDliNzQ1IiwicGhvbmUiOiIxODY4MTYzNjc0MSJ9.ZjijZ3j-Fp80iZNmEPiAfR3qC7V8oM0SeZprV8LGfdk
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NTU5NzE2NDgsInVpZCI6MywidXNlciI6Imd0YW5rXzVmNTc3NDliNzQ1IiwicGhvbmUiOiIxODY4MTYzNjc0MSJ9.onn2RiENm_L2DjCxOnqS4fgcZDwwwTATa6N6LEiYbhA
 
-###
 // 健康检查
 GET {{baseurl}}/healthz
 
@@ -26,6 +25,15 @@ POST {{baseurl}}/v1/user/k-login
 {
     "phone":"18681636741",
     "code": "123456"
+}
+
+###
+// 账号密码登录
+POST {{baseurl}}/v1/user/login
+
+{
+    "user":"d5bf_9b746",
+    "pass":"123456"
 }
 
 ###
@@ -69,12 +77,17 @@ Authorization: {{token}}
 }
 
 ###
-// 账号密码登录
-POST {{baseurl}}/v1/user/login
+// 更新基础信息
+POST {{baseurl}}/v1/user/modinfo
+Authorization: {{token}}
 
 {
-    "user":"d5bf_9b746",
-    "pass":"123456"
+    "user": "tikop",
+    "nickname": "王二狗",
+    "truename": "王胜"
 }
 
 ###
+// 用户列表
+GET {{baseurl}}/admin/user/list
+Authorization: {{token}}
