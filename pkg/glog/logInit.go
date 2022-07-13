@@ -13,7 +13,7 @@ import (
 
 var (
 	//ZapLoger  *zap.Logger 日志记录器
-	ZapLoger *zap.Logger = zap.NewExample()
+	ZapLoger *zap.Logger = zap.NewExample(zap.AddCallerSkip(1))
 	//Level 日志最小级别
 	Level = zap.NewAtomicLevel()
 )
