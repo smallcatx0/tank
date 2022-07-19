@@ -8,6 +8,9 @@ GET {{baseurl}}/healthz
 ###
 // 服务探活 
 GET {{baseurl}}/ready
+###
+// 测试接口
+GET {{baseurl}}/test
 
 ###
 // 手机号快速注册

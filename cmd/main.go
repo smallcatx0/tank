@@ -26,4 +26,6 @@ func main() {
 	app.RegisterRoutes(routes.Register)
 	// 启动HTTP 服务
 	app.Run(conf.HttpPort())
+	// 等待退出
+	app.WaitExit()
 }

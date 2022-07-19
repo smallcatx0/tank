@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"log"
 	"math/rand"
@@ -47,28 +48,39 @@ func (app *App) Run(port string) {
 		Addr:    ":" + port,
 		Handler: app.GinEngibe,
 	}
-	// 优雅终止
-	quit := make(chan os.Signal, 4)
-	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	go handleSignal(quit, app)
+	go func() {
+		log.Println("[http-serv]", "binding at", app.HttpServ.Addr)
+		err := app.HttpServ.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Panic("[http-serv]", err)
+		}
+	}()
 
-	log.Printf("http server expect run in port %s", port)
-	err := app.HttpServ.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
-		log.Panic(err)
-	}
 }
 
-func handleSignal(c <-chan os.Signal, app *App) {
-	switch <-c {
+func (app *App) Stop() {
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	app.HttpServ.Shutdown(ctx)
+}
+
+func (app *App) WaitExit(funs ...func()) {
+	fs := append([]func(){app.Stop}, funs...)
+	waitExit(fs...)
+}
+
+func waitExit(funs ...func()) {
+	quit := make(chan os.Signal, 4)
+	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	switch <-quit {
 	case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
 		log.Printf("Shutdown quickly, bye...")
 	case syscall.SIGHUP:
 		log.Printf("Shutdown gracefully, bye...")
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := app.HttpServ.Shutdown(ctx); err != nil {
-			log.Printf("http Server Shutdown err:%v", err)
+		// 处理各种服务的优雅关闭
+		for _, f := range funs {
+			if f != nil {
+				f()
+			}
 		}
 	}
 	os.Exit(0)
