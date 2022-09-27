@@ -69,7 +69,7 @@ func (u *User) AutoUseName() string {
 
 // 密码加密
 func (u *User) passEncry(p string) string {
-	return cryptor.Md5String(u.User + User_passsalt + p)
+	return cryptor.Md5String(User_passsalt + p)
 }
 
 func (u *User) PassEq(pass string) bool {
