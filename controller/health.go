@@ -26,6 +26,6 @@ func (Health) ReloadConf(c *gin.Context) {
 }
 
 func (Health) Test(c *gin.Context) {
-	resp.Fail(c, resp.ParamInValid("错了"))
-	resp.Succ(c, nil)
+	// resp.Fail(c, resp.ParamInValid("错了"))
+	resp.Fail(c, resp.NewException(401, 10000, "4011111"))
 }

@@ -40,9 +40,6 @@ type UserLogin struct {
 }
 
 func (u *UserLogin) Valid() error {
-	if u.User == "admin" {
-		return resp.ParamInValid("不允许使用该用户名")
-	}
 	return nil
 }
 

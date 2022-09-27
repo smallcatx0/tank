@@ -1,6 +1,6 @@
 //
 @baseurl = http://127.0.0.1:8081
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NTU5NzE2NDgsInVpZCI6MywidXNlciI6Imd0YW5rXzVmNTc3NDliNzQ1IiwicGhvbmUiOiIxODY4MTYzNjc0MSJ9.onn2RiENm_L2DjCxOnqS4fgcZDwwwTATa6N6LEiYbhA
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NjQyNjA1ODUsInVpZCI6MiwidXNlciI6IjI2MmZfOWI3NGQiLCJwaG9uZSI6IjE4NjgxNjM2NzQ5In0.EYg9AxR2-lvCVWJeSrqx0rGTjPMmIYJDmEsZKV7KiKk
 
 // 健康检查
 GET {{baseurl}}/healthz
@@ -17,7 +17,7 @@ GET {{baseurl}}/test
 POST {{baseurl}}/v1/user/regist
 
 {
-    "phone":"18681636742",
+    "phone":"18681636749",
     "code": "123456"
 }
 
@@ -51,7 +51,7 @@ Authorization: {{token}}
 
 {
     "type":"phone",
-    "phone":"18681636742",
+    "phone":"18681636749",
     "code":"123456",
     "pass":"123123"
 }
@@ -85,8 +85,8 @@ POST {{baseurl}}/v1/user/modinfo
 Authorization: {{token}}
 
 {
-    "user": "tikop",
-    "nickname": "王二狗",
+    "user": "kui",
+    "nickname": "昊天",
     "truename": "王胜"
 }
 
