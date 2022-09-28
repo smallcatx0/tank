@@ -143,7 +143,7 @@ func (User) Info(c *gin.Context) {
 		UpdatedAt time.Time `gorm:"column:updated_at" json:"updated_at"`
 	}
 	u := User{}
-	err := dao.MDB.First(&u, t.Uid).Error
+	err := dao.MDB.Model(&mdb.User{}).First(&u, t.Uid).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
