@@ -3,7 +3,12 @@ package glog
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"runtime"
+	"time"
 
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
 	"go.uber.org/zap"
 )
 
@@ -122,4 +127,37 @@ func FatalT(msg, requestID string, extra ...interface{}) {
 
 func Sync() {
 	ZapLoger.Sync()
+}
+
+// 机器信息日志记录
+func SysStatInfo() {
+	info := []zap.Field{
+		zap.String("type", "sysmetrics"),
+	}
+	hostname, err := os.Hostname()
+	if err != err {
+		info = append(info, zap.String("hostname", hostname))
+		Error("[sys_stat] get hostname fail, " + err.Error())
+	} else {
+		info = append(info, zap.String("hostname", hostname))
+	}
+	memInfo, err := mem.VirtualMemory()
+	if err != nil {
+		Error("[sys_stat]get memory info fail, " + err.Error())
+	} else {
+		info = append(info, zap.Int("mem_percent", int(memInfo.UsedPercent*1000)))
+	}
+	// cpu信息
+	cpuInfo, err := cpu.Percent(time.Second*5, false)
+	if err != nil {
+		Error("[sys_stat]get cpu info fail, " + err.Error())
+	} else if len(cpuInfo) > 0 {
+		sum := float64(0)
+		for _, v := range cpuInfo {
+			sum += v
+		}
+		info = append(info, zap.Int("cpu_percent", int(sum*1000)/len(cpuInfo)))
+	}
+	info = append(info, zap.Int("goroutine", runtime.NumGoroutine()))
+	ZapLoger.Info("system stat metrics", info...)
 }

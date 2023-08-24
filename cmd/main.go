@@ -19,7 +19,12 @@ func main() {
 	bootstrap.InitConf(&bootstrap.Param.C)
 	app := bootstrap.NewApp(conf.IsDebug())
 	// 初始化操作
-	app.Use(bootstrap.InitLog, bootstrap.InitDB)
+	app.Use(
+		bootstrap.InitLog,
+		bootstrap.InitDB,
+		// bootstrap.Heartbeat,
+		bootstrap.InitComsumer,
+	)
 	app.GinEngibe.Use(httpmd.SetHeader)
 	app.GinEngibe.Use(httpmd.ReqLog)
 	// 注册路由
