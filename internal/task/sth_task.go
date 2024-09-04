@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	jobName = "[sthjob]"
+	jobName = "[sthjob] "
 	// 任务状态流转
 	Task_init   = 1
 	Task_runing = 10

@@ -1,14 +1,16 @@
 # 基础配置
-app_name: gtank-demo
-debug: true
-env: dev # 可选 dev test pre prod
+app_name: "示例项目"
 desc: "这是示例项目"
+debug: true # gin debug开关
+metrics: true # 是否开启系统监控
+metrics_dt: 10 # 系统监控间隔
+env: dev # 可选 dev test pre prod
 http_port: 8081
 
 # 主数据库
 mysql:
   debug: true
-  dsn: 'root:123123@tcp(mysql-serv:3306)/test?charset=utf8&parseTime=True&loc=Local'
+  dsn: 'root:123123@tcp(mysql-serv:3306)/bs?charset=utf8&parseTime=True&loc=Local'
   maxIdleConns: 10
   maxOpenConns: 100
   connMaxLifetime: 6
@@ -21,11 +23,10 @@ redis:
   pool_size: 30
   max_reties: 3
   idle_timeout: 1000
-  prefix: project-prefix
 
 # 日志配置
 log:
-  type: file #可选 file stdout
+  type: stdout #可选 file stdout
   level: DEBUG 
   path: "./logs/log.log"
   max_size: 32

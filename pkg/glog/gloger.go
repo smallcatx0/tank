@@ -1,6 +1,7 @@
 package glog
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -114,6 +115,12 @@ func (l *GLog) SetLevel(level string) {
 		loglevel = zapcore.InfoLevel
 	}
 	l.Level.SetLevel(loglevel)
+}
+
+func (l *GLog) Printf(tpl string, args ...interface{}) {
+	l.zap.WithOptions(zap.AddCallerSkip(1)).Info(
+		fmt.Sprintf(tpl, args...),
+	)
 }
 
 func fileWriterByDay(filename string) (zapcore.WriteSyncer, error) {

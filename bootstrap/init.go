@@ -46,8 +46,15 @@ func Heartbeat() {
 			glog.Error("Heartbeat goroutine run panic " + fmt.Sprint(r))
 		}
 	}()
+	if !conf.AppConf.GetBool("metrics") {
+		return
+	}
+	dt := conf.AppConf.GetInt("metrics_dt")
+	if dt == 0 {
+		dt = 10
+	}
 	go func() {
-		ticker := time.NewTicker(time.Second * 10)
+		ticker := time.NewTicker(time.Second * time.Duration(dt))
 		defer ticker.Stop()
 		for range ticker.C {
 			glog.SysStatInfo()

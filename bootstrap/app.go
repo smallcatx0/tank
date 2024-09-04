@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,7 +21,6 @@ type App struct {
 }
 
 func NewApp(debug bool) *App {
-	rand.Seed(time.Now().UnixNano())
 	app := new(App)
 	if debug {
 		gin.SetMode(gin.DebugMode)

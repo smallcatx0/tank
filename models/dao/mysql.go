@@ -1,12 +1,17 @@
 package dao
 
 import (
+	"fmt"
 	"gtank/internal/conf"
+	"gtank/pkg/glog"
 	"log"
+	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var MDB *gorm.DB
@@ -35,7 +40,17 @@ func InitMysql() {
 }
 
 func ConnMysql(dsn string, isDebug bool) (db *gorm.DB, err error) {
-	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	w := &MmyLog{
+		logger: glog.D().Z(),
+	}
+	logger := logger.New(w, logger.Config{
+		SlowThreshold: time.Millisecond * 200,
+		LogLevel:      logger.Silent,
+		Colorful:      false,
+	})
+	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: logger,
+	})
 	if err != nil {
 		return
 	}
@@ -63,4 +78,14 @@ func CloseTmpMysql(db *gorm.DB) {
 		return
 	}
 	mdb.Close()
+}
+
+// 接管mysql 日志
+type MmyLog struct {
+	logger *zap.Logger
+}
+
+func (l *MmyLog) Printf(tpl string, args ...interface{}) {
+	tpl = strings.ReplaceAll(tpl, "\n", " ")
+	l.logger.Info("[sql] "+fmt.Sprintf(tpl, args...), zap.String("type", "mysqlLog"))
 }

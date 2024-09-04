@@ -22,7 +22,7 @@ func main() {
 	app.Use(
 		bootstrap.InitLog,
 		bootstrap.InitDB,
-		// bootstrap.Heartbeat,
+		bootstrap.Heartbeat,
 		bootstrap.InitComsumer,
 	)
 	app.GinEngibe.Use(httpmd.SetHeader)
