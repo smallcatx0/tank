@@ -14,7 +14,7 @@ func TestFile(t *testing.T) {
 	}
 
 	glog.Debug("该条日志不应会被记录")
-	glog.SetAtomLevel("debug")
+	glog.D().SetLevel("debug")
 
 	glog.Debug("test debug ")
 	glog.Debug("test debug with requestId", "requestId")
@@ -45,8 +45,20 @@ func TestCons(t *testing.T) {
 	}()
 	glog.InitLog2std("info")
 	glog.Debug("不会被打出来的日志")
-	glog.SetAtomLevel("debug")
+	glog.D().SetLevel("debug")
 	glog.Debug("会被打出来的debug日志", "requestId=0981837", "extra1", "extra2")
 	glog.Panic("Panic日志", "requestId=192318021378", "extra1", "extra2")
 	t.Log("test ok")
+}
+
+func Test_loglevel(t *testing.T) {
+	glog.InitLog2std("info")
+	ologger, _ := glog.NewStdLogger("info")
+	glog.Debug("debug 日志")
+	glog.Info("info 日志")
+
+	ologger.Z().Debug("debug日志")
+	ologger.Z().Info("info日志")
+
+	glog.D().Z().Info("使用默认实例 记录日志")
 }
