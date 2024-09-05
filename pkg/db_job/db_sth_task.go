@@ -46,16 +46,19 @@ type ITask interface {
 
 // job 管理者
 type DbJob struct {
-	hostname  string
-	JobName   string // 任务名称
-	lockKey   string // 分布式锁key
-	db        *gorm.DB
-	redisCli  *redis.Client
-	Logger    *zap.Logger
-	taskIns   ITask      // 任务实例
-	taskBuff  chan ITask // 任务列表缓冲区
-	WorkerNum int        // 消费者数量
+	hostname     string
+	JobName      string // 任务名称
+	lockKey      string // 分布式锁key
+	db           *gorm.DB
+	redisCli     *redis.Client
+	Logger       *zap.Logger
+	taskIns      ITask      // 任务实例
+	taskBuff     chan ITask // 任务列表缓冲区
+	taskDoneBuff chan int64 // 已成功ids
 
+	WorkerNum int // 消费者数量
+
+	BatTaskDone      bool // 是否需要批量修改成功
 	BatNum           int  // 一次从数据库拿多少任务
 	NoTaskSleep      int  // 无任务,休眠时间（秒）
 	NoLockedSleep    int  // 未获得锁,休眠时间（秒）
@@ -74,6 +77,7 @@ func NewDbJob(db *gorm.DB, rds *redis.Client, task ITask, jobName string) (*DbJo
 	obj := DbJob{
 		hostname: hostname,
 		lockKey:  lockkey,
+		taskIns:  task,
 		db:       db,
 		redisCli: rds,
 	}
@@ -91,6 +95,9 @@ func NewDbJob(db *gorm.DB, rds *redis.Client, task ITask, jobName string) (*DbJo
 func (j *DbJob) SetBufferNum(num int) {
 	j.taskBuff = make(chan ITask, num)
 }
+func (j *DbJob) SetDoneBuff(num int) {
+	j.taskDoneBuff = make(chan int64, num)
+}
 
 // 协程将任务跑起来
 func (j *DbJob) GoTaskRun() {
@@ -98,7 +105,12 @@ func (j *DbJob) GoTaskRun() {
 		defer j.panicRecover()
 		for {
 			t := <-j.taskBuff
-			t.Run(j.db)
+			status := t.Run(j.db)
+
+			// 定期批量更新成功任务，（优化数据库压力）
+			if j.BatTaskDone && status == TaskStatus_done {
+				j.doneTaskIds <- t.ID()
+			}
 		}
 	}
 	for i := 0; i < j.WorkerNum; i++ {

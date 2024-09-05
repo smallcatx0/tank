@@ -3,6 +3,7 @@ package main
 import (
 	"gtank/bootstrap"
 	"gtank/internal/conf"
+	"gtank/internal/task"
 	"gtank/middleware/httpmd"
 	"gtank/routes"
 )
@@ -23,7 +24,7 @@ func main() {
 		bootstrap.InitLog,
 		bootstrap.InitDB,
 		bootstrap.Heartbeat,
-		bootstrap.InitComsumer,
+		task.StartSthTask, // 数据库任务消费
 	)
 	app.GinEngibe.Use(httpmd.SetHeader)
 	app.GinEngibe.Use(httpmd.ReqLog)

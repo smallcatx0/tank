@@ -3,3 +3,4 @@
 go.sum
 *.exe
 **/logs/*.log
+**/var_test.go

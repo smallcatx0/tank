@@ -3,7 +3,6 @@ package bootstrap
 import (
 	"fmt"
 	"gtank/internal/conf"
-	"gtank/internal/task"
 	"gtank/models/dao"
 	"gtank/pkg/glog"
 	"time"
@@ -60,9 +59,4 @@ func Heartbeat() {
 			glog.SysStatInfo()
 		}
 	}()
-}
-
-// 启动消费者
-func InitComsumer() {
-	task.StartSthTask()
 }

@@ -73,8 +73,9 @@ func (t *BsSthTask) GetTasks(db *gorm.DB, limit int) ([]db_job.ITask, error) {
 		Where("status=?", db_job.TaskStatus_init).
 		Find(&tasks).Error
 	res := make([]db_job.ITask, len(tasks))
-	for i, v := range tasks {
-		res[i] = &v
+
+	for i := 0; i < len(tasks); i++ {
+		res[i] = &tasks[i]
 	}
 	return res, err
 }
