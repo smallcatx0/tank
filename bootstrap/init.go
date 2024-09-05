@@ -64,5 +64,5 @@ func Heartbeat() {
 
 // 启动消费者
 func InitComsumer() {
-	task.StartConsumSthJob(dao.MDB, dao.Rdb, 2, 10)
+	task.StartSthTask()
 }
