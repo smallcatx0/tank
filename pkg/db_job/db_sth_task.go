@@ -11,6 +11,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// 机器名适合作为全局变量，同一个进程中全局唯一
+var hostname string
+
 type TaskStatus int
 
 const (
@@ -47,36 +50,36 @@ type ITask interface {
 
 // job 管理者
 type DbJob struct {
-	hostname     string
 	JobName      string // 任务名称
 	lockKey      string // 分布式锁key
+	taskIns      ITask  // 任务实例
 	db           *gorm.DB
 	redisCli     *redis.Client
 	Logger       *zap.Logger
-	taskIns      ITask      // 任务实例
 	taskBuff     chan ITask // 任务列表缓冲区
 	taskDoneBuff chan int64 // 已成功ids
 
-	WorkerNum int // 消费者数量
-
-	TaskBatDone      bool // 是否需要批量修改成功
+	WorkerNum        int  // 消费者数量
 	BatNum           int  // 一次从数据库拿多少任务
 	NoTaskSleep      int  // 无任务,休眠时间（秒）
 	NoLockedSleep    int  // 未获得锁,休眠时间（秒）
-	NeedTimeoutReset bool // 是否需要超时重置
 	TimeoutResetD    int  // 超时重置检察间隔（秒）
 	TaskTimeout      int  // 任务超时时间（秒）
+	TaskBatDone      bool // 是否需要批量修改成功
+	NeedTimeoutReset bool // 是否需要超时重置
 }
 
 func NewDbJob(db *gorm.DB, rds *redis.Client, task ITask, jobName string) (*DbJob, error) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		zap.L().Error(logPre + "get hostname err:" + err.Error())
-		hostname = "unknow"
+	var err error
+	if hostname == "" {
+		hostname, err = os.Hostname()
+		if err != nil {
+			zap.L().Error(logPre + "get hostname err:" + err.Error())
+			hostname = "unknow"
+		}
 	}
 	lockkey := fmt.Sprintf(LogKeyTpl, task.TableName(), jobName)
 	obj := DbJob{
-		hostname: hostname,
 		lockKey:  lockkey,
 		taskIns:  task,
 		db:       db,
@@ -245,7 +248,7 @@ func (j *DbJob) lock() bool {
 	return j.redisCli.SetNX(
 		context.Background(),
 		j.lockKey,
-		j.hostname,
+		hostname,
 		300*time.Second,
 	).Val()
 }
