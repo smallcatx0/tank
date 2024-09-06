@@ -82,3 +82,20 @@ func AppendFile(filename string, data []byte, perm os.FileMode) error {
 	}
 	return err
 }
+
+// arrBreakInt64 将给定的int64切片按照指定的limit大小分割成多个子切片，并返回这些子切片组成的切片。
+// 这个函数旨在处理需要将一个大的数据集分解为更小、更易于管理的块的情况。
+// 参数arr是待分割的原始切片，limit是每个子切片最多包含的元素数量。
+// 返回值是一个二维int64切片，其中每个元素是一个大小不超过limit的原始切片的子切片。
+func ArrBreakInt64(arr []int64, limit int) [][]int64 {
+	arrLen := len(arr)
+	ret := make([][]int64, 0, arrLen/limit+1)
+	for i := 0; i < arrLen; i += limit {
+		j := i + limit
+		if j > arrLen {
+			j = arrLen
+		}
+		ret = append(ret, arr[i:j])
+	}
+	return ret
+}

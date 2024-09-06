@@ -18,8 +18,9 @@ const (
 	// 任务状态流转
 	TaskStatus_init   TaskStatus = 1
 	TaskStatus_runing TaskStatus = 10
-	TaskStatus_fail   TaskStatus = 20
-	TaskStatus_done   TaskStatus = 30
+	// 失败的状态 由消费者自己写入。错误次数也由消费者自己维护
+	// TaskStatus_fail   TaskStatus = 20
+	TaskStatus_done TaskStatus = 30
 )
 
 const (
@@ -58,7 +59,7 @@ type DbJob struct {
 
 	WorkerNum int // 消费者数量
 
-	BatTaskDone      bool // 是否需要批量修改成功
+	TaskBatDone      bool // 是否需要批量修改成功
 	BatNum           int  // 一次从数据库拿多少任务
 	NoTaskSleep      int  // 无任务,休眠时间（秒）
 	NoLockedSleep    int  // 未获得锁,休眠时间（秒）
@@ -96,6 +97,7 @@ func (j *DbJob) SetBufferNum(num int) {
 	j.taskBuff = make(chan ITask, num)
 }
 func (j *DbJob) SetDoneBuff(num int) {
+	j.TaskBatDone = true
 	j.taskDoneBuff = make(chan int64, num)
 }
 
@@ -108,8 +110,8 @@ func (j *DbJob) GoTaskRun() {
 			status := t.Run(j.db)
 
 			// 定期批量更新成功任务，（优化数据库压力）
-			if j.BatTaskDone && status == TaskStatus_done {
-				j.doneTaskIds <- t.ID()
+			if j.TaskBatDone && status == TaskStatus_done {
+				j.taskDoneBuff <- t.ID()
 			}
 		}
 	}
@@ -205,6 +207,39 @@ func (j *DbJob) TimeOutReset(duration, timeout time.Duration) {
 		}
 	}
 }
+func (j *DbJob) setBatTaskDone(d time.Duration) {
+	defer j.panicRecover()
+	ticker := time.NewTicker(d)
+	defer ticker.Stop()
+	for {
+		<-ticker.C
+		ids := []int64{}
+		for flag := true; flag; {
+			select {
+			case id := <-j.taskDoneBuff:
+				ids = append(ids, id)
+			default:
+				flag = false
+			}
+		}
+		// 200条一批，更新任务状态
+		idsArr := arrBreakInt64(ids, 200)
+		for _, abat := range idsArr {
+			err := j.taskIns.UpdateStatus(j.db, abat, TaskStatus_done)
+			if err != nil {
+				msg := logPre + fmt.Sprintf("批量更表(%s)新状态失败 ids=(%v) status=%d, err=%s",
+					j.taskIns.TableName(),
+					abat, TaskStatus_done, err.Error(),
+				)
+				j.Logger.Error(msg)
+				// 失败则写回队列
+				for _, id := range abat {
+					j.taskDoneBuff <- id
+				}
+			}
+		}
+	}
+}
 
 func (j *DbJob) lock() bool {
 	return j.redisCli.SetNX(
@@ -243,8 +278,25 @@ func (j *DbJob) Start() {
 			time.Second*time.Duration(j.TaskTimeout),
 		)
 	}
+	if j.TaskBatDone {
+		// 每秒同步一次成功状态
+		go j.setBatTaskDone(time.Second)
+	}
 }
 
 func (j *DbJob) Close() {
 	// TODO: 关闭buff,将缓冲区任务改为 init
+}
+
+func arrBreakInt64(arr []int64, limit int) [][]int64 {
+	arrLen := len(arr)
+	ret := make([][]int64, 0, arrLen/limit+1)
+	for i := 0; i < arrLen; i += limit {
+		j := i + limit
+		if j > arrLen {
+			j = arrLen
+		}
+		ret = append(ret, arr[i:j])
+	}
+	return ret
 }

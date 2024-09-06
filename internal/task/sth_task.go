@@ -21,6 +21,7 @@ func StartSthTask() {
 	job.Logger = glog.D().Z()
 	// TODO: 下面这些参数从配置文件中获取
 	job.SetBufferNum(10)
+	job.SetDoneBuff(2000)
 	job.WorkerNum = 2
 	job.BatNum = 10
 	job.NoTaskSleep = 60        // 获取不到认为休眠60s
@@ -60,8 +61,8 @@ func (t *BsSthTask) UpdateStatus(db *gorm.DB, ids []int64, status db_job.TaskSta
 
 func (t *BsSthTask) Run(db *gorm.DB) db_job.TaskStatus {
 	// 模拟消费任务
-	glog.InfoF("task(%d) succ %s", "", t.Id, t.Content)
 	time.Sleep(time.Second)
+	glog.InfoF("[sth_task] 模拟消费 任务ID=%d 耗时1s", "", t.Id)
 	return db_job.TaskStatus_done
 }
 
