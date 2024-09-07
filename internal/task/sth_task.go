@@ -11,7 +11,7 @@ import (
 
 // 开始跑起来这个任务
 func StartSthTask() {
-	job, err := sthjob.NewDbJob(dao.MDB, dao.Rdb,
+	job, err := sthjob.NewDbJob(dao.MDB.Debug(), dao.Rdb,
 		&BsSthTask{}, "try_sth_task",
 	)
 	if err != nil {

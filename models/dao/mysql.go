@@ -41,7 +41,7 @@ func InitMysql() {
 
 func ConnMysql(dsn string, isDebug bool) (db *gorm.DB, err error) {
 	w := &MmyLog{
-		logger: glog.D().Z(),
+		logger: glog.D().Z().With(zap.String("type", "sql_log")),
 	}
 	logger := logger.New(w, logger.Config{
 		SlowThreshold: time.Millisecond * 200,
@@ -87,5 +87,10 @@ type MmyLog struct {
 
 func (l *MmyLog) Printf(tpl string, args ...interface{}) {
 	tpl = strings.ReplaceAll(tpl, "\n", " ")
-	l.logger.Info("[sql] "+fmt.Sprintf(tpl, args...), zap.String("type", "mysqlLog"))
+	msg := "[sql] " + fmt.Sprintf(tpl, args...)
+	if _, ok := args[1].(error); ok {
+		l.logger.Error(msg)
+	} else {
+		l.logger.Info(msg)
+	}
 }

@@ -11,6 +11,8 @@ GET {{baseurl}}/ready
 ###
 // 测试接口
 GET {{baseurl}}/test
+    # ?table=bs_no
+    ?table=bs_sth_task
 
 ###
 // 手机号快速注册

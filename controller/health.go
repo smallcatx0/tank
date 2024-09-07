@@ -1,8 +1,10 @@
 package controller
 
 import (
+	"fmt"
 	"gtank/bootstrap"
 	"gtank/middleware/resp"
+	"gtank/models/dao"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,5 +29,8 @@ func (Health) ReloadConf(c *gin.Context) {
 
 func (Health) Test(c *gin.Context) {
 	// resp.Fail(c, resp.ParamInValid("错了"))
+	// sql 错误
+	table, _ := c.GetQuery("table")
+	dao.MDB.Exec(fmt.Sprintf("select * from `%s`", table))
 	resp.Fail(c, resp.NewException(401, 10000, "4011111"))
 }
