@@ -1,4 +1,4 @@
-package db_job
+package sthjob
 
 import (
 	"context"
@@ -6,13 +6,26 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 // 机器名适合作为全局变量，同一个进程中全局唯一
 var hostname string
+
+func Hostname() string {
+	if hostname != "" {
+		return hostname
+	}
+	var err error
+	hostname, err = os.Hostname()
+	if err != nil {
+		zap.L().Error("[gloabl] get hostname err:" + err.Error())
+		hostname = "unknow"
+	}
+	return hostname
+}
 
 type TaskStatus int
 
@@ -70,14 +83,6 @@ type DbJob struct {
 }
 
 func NewDbJob(db *gorm.DB, rds *redis.Client, task ITask, jobName string) (*DbJob, error) {
-	var err error
-	if hostname == "" {
-		hostname, err = os.Hostname()
-		if err != nil {
-			zap.L().Error(logPre + "get hostname err:" + err.Error())
-			hostname = "unknow"
-		}
-	}
 	lockkey := fmt.Sprintf(LogKeyTpl, task.TableName(), jobName)
 	obj := DbJob{
 		lockKey:  lockkey,
@@ -248,7 +253,7 @@ func (j *DbJob) lock() bool {
 	return j.redisCli.SetNX(
 		context.Background(),
 		j.lockKey,
-		hostname,
+		Hostname(),
 		300*time.Second,
 	).Val()
 }

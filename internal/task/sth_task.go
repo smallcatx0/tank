@@ -2,8 +2,8 @@ package task
 
 import (
 	"gtank/models/dao"
-	"gtank/pkg/db_job"
 	"gtank/pkg/glog"
+	sthjob "gtank/pkg/sth_job"
 	"time"
 
 	"gorm.io/gorm"
@@ -11,7 +11,7 @@ import (
 
 // 开始跑起来这个任务
 func StartSthTask() {
-	job, err := db_job.NewDbJob(dao.MDB, dao.Rdb,
+	job, err := sthjob.NewDbJob(dao.MDB, dao.Rdb,
 		&BsSthTask{}, "try_sth_task",
 	)
 	if err != nil {
@@ -40,7 +40,7 @@ type BsSthTask struct {
 	UpdatedAt time.Time `gorm:"column:updated_at"`
 }
 
-var _ db_job.ITask = &BsSthTask{}
+var _ sthjob.ITask = &BsSthTask{}
 
 func (BsSthTask) TableName() string {
 	return "bs_sth_task"
@@ -50,7 +50,7 @@ func (t BsSthTask) ID() int64 {
 }
 
 // 批量更新状态
-func (t *BsSthTask) UpdateStatus(db *gorm.DB, ids []int64, status db_job.TaskStatus) error {
+func (t *BsSthTask) UpdateStatus(db *gorm.DB, ids []int64, status sthjob.TaskStatus) error {
 	err := db.Where("id IN ?", ids).
 		Updates(BsSthTask{
 			Status:    int(status),
@@ -59,21 +59,21 @@ func (t *BsSthTask) UpdateStatus(db *gorm.DB, ids []int64, status db_job.TaskSta
 	return err
 }
 
-func (t *BsSthTask) Run(db *gorm.DB) db_job.TaskStatus {
+func (t *BsSthTask) Run(db *gorm.DB) sthjob.TaskStatus {
 	// 模拟消费任务
 	time.Sleep(time.Second)
 	glog.InfoF("[sth_task] 模拟消费 任务ID=%d 耗时1s", "", t.Id)
-	return db_job.TaskStatus_done
+	return sthjob.TaskStatus_done
 }
 
 // 从数据库中获取一批任务
-func (t *BsSthTask) GetTasks(db *gorm.DB, limit int) ([]db_job.ITask, error) {
+func (t *BsSthTask) GetTasks(db *gorm.DB, limit int) ([]sthjob.ITask, error) {
 	tasks := []BsSthTask{}
 	err := db.Model(&BsSthTask{}).
 		Limit(limit).
-		Where("status=?", db_job.TaskStatus_init).
+		Where("status=?", sthjob.TaskStatus_init).
 		Find(&tasks).Error
-	res := make([]db_job.ITask, len(tasks))
+	res := make([]sthjob.ITask, len(tasks))
 
 	for i := 0; i < len(tasks); i++ {
 		res[i] = &tasks[i]
@@ -84,7 +84,7 @@ func (t *BsSthTask) GetTasks(db *gorm.DB, limit int) ([]db_job.ITask, error) {
 // 任务重置
 func (t *BsSthTask) StatusReset(db *gorm.DB, timeout time.Duration) (int64, error) {
 	outtime := time.Now().Add(-timeout)
-	res := db.Where("status=? AND updated_at < ?", db_job.TaskStatus_runing, outtime).
-		Updates(BsSthTask{Status: int(db_job.TaskStatus_init), UpdatedAt: time.Now()})
+	res := db.Where("status=? AND updated_at < ?", sthjob.TaskStatus_runing, outtime).
+		Updates(BsSthTask{Status: int(sthjob.TaskStatus_init), UpdatedAt: time.Now()})
 	return res.RowsAffected, res.Error
 }

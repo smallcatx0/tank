@@ -1,6 +1,7 @@
 package rdb
 
 import (
+	"context"
 	"math/rand"
 	"strings"
 	"time"
@@ -33,15 +34,15 @@ func BlurTTL(sec int) int {
 // RateLimit 流量控制
 func RateLimit(key string, sec, max int) bool {
 	rdb := dao.Rdb
-	res := rdb.Get(rdb.Context(), key)
+	res := rdb.Get(context.Background(), key)
 	if res.Err() != nil {
 		// 如果没有此key 创建 过期时间为time =》 true
-		rdb.Set(rdb.Context(), key, 1, time.Second*time.Duration(sec))
+		rdb.Set(context.Background(), key, 1, time.Second*time.Duration(sec))
 		return true
 	}
 	curr, _ := res.Int()
 	if max > curr {
-		rdb.Incr(rdb.Context(), key)
+		rdb.Incr(context.Background(), key)
 		return true
 	}
 	return false
@@ -50,7 +51,7 @@ func RateLimit(key string, sec, max int) bool {
 func Remember(key string, f func() string, exp ...int) (string, error) {
 	key = K(dao.CachePrefix, key)
 	cli := dao.Rdb
-	ret, err := cli.Get(cli.Context(), key).Result()
+	ret, err := cli.Get(context.Background(), key).Result()
 	if err == nil {
 		return ret, nil
 	}
@@ -60,6 +61,6 @@ func Remember(key string, f func() string, exp ...int) (string, error) {
 	}
 	expSec = BlurTTL(expSec)
 	ret = f()
-	err = cli.Set(cli.Context(), key, ret, time.Second*time.Duration(expSec)).Err()
+	err = cli.Set(context.Background(), key, ret, time.Second*time.Duration(expSec)).Err()
 	return ret, err
 }

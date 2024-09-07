@@ -1,6 +1,7 @@
 package rdb
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"time"
@@ -8,7 +9,7 @@ import (
 	"gtank/models/dao"
 	"gtank/pkg/glog"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 type Mq struct {
@@ -38,7 +39,7 @@ func (b *HttpBody) Build(jsonStr string) (err error) {
 }
 
 func (mq *Mq) Push(msg MqMsg) {
-	res := dao.Rdb.LPush(dao.Rdb.Context(), mq.Key, msg.String())
+	res := dao.Rdb.LPush(context.Background(), mq.Key, msg.String())
 	if err := res.Err(); err != nil {
 		glog.Error("PushQueue err", "", err.Error())
 	}
@@ -48,7 +49,7 @@ func (mq *Mq) Push(msg MqMsg) {
 func (mq *Mq) BPop(hander func(string)) {
 	for {
 		// 阻塞式监听该key
-		res := dao.Rdb.BRPop(dao.Rdb.Context(), time.Second*10, mq.Key)
+		res := dao.Rdb.BRPop(context.Background(), time.Second*10, mq.Key)
 		err := res.Err()
 		if err == nil {
 			hander(res.Val()[1])

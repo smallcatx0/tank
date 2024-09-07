@@ -1,12 +1,11 @@
 package dao
 
 import (
-	"log"
-	"time"
-
+	"context"
 	"gtank/internal/conf"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 var (
@@ -18,20 +17,20 @@ func InitRedis() error {
 	c := conf.AppConf
 	CachePrefix = c.GetString("redis.prefix")
 	return ConnRedis(&redis.Options{
-		Addr:        c.GetString("redis.addr"),
-		DB:          c.GetInt("redis.db"),
-		Password:    c.GetString("redis.pwd"),
-		PoolSize:    c.GetInt("redis.pool_size"),
-		MaxRetries:  c.GetInt("redis.max_reties"),
-		IdleTimeout: c.GetDuration("redis.idle_timeout") * time.Millisecond,
+		Addr:       c.GetString("redis.addr"),
+		DB:         c.GetInt("redis.db"),
+		Password:   c.GetString("redis.pwd"),
+		PoolSize:   c.GetInt("redis.pool_size"),
+		MaxRetries: c.GetInt("redis.max_reties"),
 	})
 }
 
 func ConnRedis(opt *redis.Options) error {
 	Rdb = redis.NewClient(opt)
-	_, err := Rdb.Ping(Rdb.Context()).Result()
+	ctx := context.Background()
+	_, err := Rdb.Ping(ctx).Result()
 	if err != nil {
-		log.Printf("[dao] redis fail, err=%s", err)
+		zap.L().Error("[dao] redis fail, err=" + err.Error())
 		return err
 	}
 	return nil
