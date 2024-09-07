@@ -40,3 +40,22 @@ glog.DebugF("测试模板日志age=%d", "requestId", 23)
 
 ```
 
+
+
+### 钉钉群机器人
+
+#### 初始化
+
+```go
+ala := glog.DingAlarmNew(webHook, secret)
+```
+
+#### 使用
+
+```go
+// 普通消息
+ala.Text("测试普通消息").AtPhones("18681636749").Send()
+// markdown 消息
+ala.Markdown("title", "### 三级标题 \n\n> 引用 \n\n内容").Send()
+```
+
