@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-var MDB *gorm.DB
+var MysqlCli *gorm.DB
 var MdbPrefix string
 
 func InitMysql() {
@@ -36,7 +36,7 @@ func InitMysql() {
 	mdb.SetMaxOpenConns(maxOpenConns)
 	mdb.SetConnMaxLifetime(time.Duration(connMaxLifetime) * time.Second)
 	// 赋给全局变量
-	MDB = db
+	MysqlCli = db
 }
 
 func ConnMysql(dsn string, isDebug bool) (db *gorm.DB, err error) {

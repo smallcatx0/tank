@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	Rdb         *redis.Client
+	RedisCli    *redis.Client
 	CachePrefix string
 )
 
@@ -26,9 +26,9 @@ func InitRedis() error {
 }
 
 func ConnRedis(opt *redis.Options) error {
-	Rdb = redis.NewClient(opt)
+	RedisCli = redis.NewClient(opt)
 	ctx := context.Background()
-	_, err := Rdb.Ping(ctx).Result()
+	_, err := RedisCli.Ping(ctx).Result()
 	if err != nil {
 		zap.L().Error("[dao] redis fail, err=" + err.Error())
 		return err

@@ -11,11 +11,11 @@ import (
 
 // 开始跑起来这个任务
 func StartSthTask() {
-	job, err := sthjob.NewDbJob(dao.MDB.Debug(), dao.Rdb,
+	job, err := sthjob.NewDbJob(dao.MysqlCli.Debug(), dao.RedisCli,
 		&BsSthTask{}, "try_sth_task",
 	)
 	if err != nil {
-		glog.ErrorF("[db_job]启动任务失败 err=%s", "", err.Error())
+		glog.ErrorF("[db_job] 启动任务失败 err=%s", "", err.Error())
 		return
 	}
 	job.Logger = glog.D().Z()

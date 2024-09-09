@@ -19,7 +19,7 @@ func (UserAdmin) List(c *gin.Context) {
 		return
 	}
 
-	q := dao.MDB.Model(&mdb.User{}).Omit("pass")
+	q := dao.MysqlCli.Model(&mdb.User{}).Omit("pass")
 	if p.Id != 0 {
 		q = q.Where("id=?", p.Id)
 	}

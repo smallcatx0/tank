@@ -76,6 +76,7 @@ func (q SthRetryWorker) Consume(dv rmq.Delivery) {
 	glog.Debug("[sth_mq_task] 开始消费任务: " + raw)
 	task.Run()
 	if task.Status == RmqStatus_fail {
+		// 可重试的错误丢入错误队列中
 		err = q.failQ.PublishBytes(task.Serialize())
 		IfErrLog(err)
 	}
@@ -90,4 +91,7 @@ func IfErrLog(err error, msg ...string) {
 	errMsg := strings.Join(msg, " ")
 	errMsg += " err=" + err.Error()
 	glog.Error("[sth_mq_task]" + errMsg)
+}
+
+func StartRmqTask() {
 }

@@ -35,14 +35,14 @@ func (User) TableName() string {
 }
 
 func (u *User) GetByPhone() (bool, error) {
-	q := dao.MDB.Where("phone=?", u.Phone)
+	q := dao.MysqlCli.Where("phone=?", u.Phone)
 	if u.Id != 0 {
 		q = q.Where("id <> ?", u.Id)
 	}
 	return u.queryOne(q)
 }
 func (u *User) GetByUser() (bool, error) {
-	q := dao.MDB.Where("user=?", u.User)
+	q := dao.MysqlCli.Where("user=?", u.User)
 	if u.Id != 0 {
 		q = q.Where("id <> ?", u.Id)
 	}

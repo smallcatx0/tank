@@ -38,7 +38,7 @@ func (User) RegistByPhone(c *gin.Context) {
 		Phone: param.Phone,
 	}
 	u.User = u.AutoUseName() // 自动生成用户名
-	err = dao.MDB.Create(u).Error
+	err = dao.MysqlCli.Create(u).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -143,7 +143,7 @@ func (User) Info(c *gin.Context) {
 		UpdatedAt time.Time `gorm:"column:updated_at" json:"updated_at"`
 	}
 	u := User{}
-	err := dao.MDB.Model(&mdb.User{}).First(&u, t.Uid).Error
+	err := dao.MysqlCli.Model(&mdb.User{}).First(&u, t.Uid).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -165,7 +165,7 @@ func (User) ModPass(c *gin.Context) {
 		return
 	}
 	u := &mdb.User{}
-	err = dao.MDB.First(u, t.Uid).Error
+	err = dao.MysqlCli.First(u, t.Uid).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -189,7 +189,7 @@ func (User) ModPass(c *gin.Context) {
 		}
 	}
 	u.SetPass(param.Pass)
-	err = dao.MDB.Select("pass").Updates(u).Error
+	err = dao.MysqlCli.Select("pass").Updates(u).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -225,7 +225,7 @@ func (User) ModInfo(c *gin.Context) {
 			return
 		}
 	}
-	err = dao.MDB.First(u, t.Uid).Error
+	err = dao.MysqlCli.First(u, t.Uid).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -239,7 +239,7 @@ func (User) ModInfo(c *gin.Context) {
 	if p.User != "" {
 		u.User = p.User
 	}
-	res := dao.MDB.
+	res := dao.MysqlCli.
 		Select("nickname", "truename", "user").
 		Updates(u)
 	if res.Error != nil {
