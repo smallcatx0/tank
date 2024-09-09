@@ -47,8 +47,12 @@ func NewRmqJob(cli *redis.Client, name string) (*RmqJob, error) {
 func (j *RmqJob) Start(workers []rmq.Consumer, rate int64) error {
 	var err error
 	j.consumerIns = workers[0]
-	// ?: 先启动消费者还是先添加消费者
 	j.consumerTags = make([]string, len(workers))
+	err = j.q.StartConsuming(rate, time.Second)
+	if err != nil {
+		j.Logger.Error(err.Error())
+		return err
+	}
 	for i := 0; i < len(workers); i++ {
 		workerTag := fmt.Sprintf("%s_%s#%d",
 			Hostname(), j.name, i,
@@ -60,11 +64,7 @@ func (j *RmqJob) Start(workers []rmq.Consumer, rate int64) error {
 		}
 	}
 	j.rate = int(rate)
-	err = j.q.StartConsuming(rate, time.Second)
-	if err != nil {
-		j.Logger.Error(err.Error())
-		return err
-	}
+
 	go j.clearUnAcked() // 5分钟清理一次未ack的任务
 	return nil
 }

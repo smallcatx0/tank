@@ -23,6 +23,9 @@ const (
 	Level_Warn  = "warn"
 	Level_Error = "error"
 	Level_Panic = "panic"
+
+	// 时间格式 毫秒值
+	LogTimeFomate = "2006-01-02 15:04:05.000"
 )
 
 type GLog struct {
@@ -60,7 +63,7 @@ func NewFileLogger(filename, level string) (*GLog, error) {
 	// json格式
 	config := zap.NewProductionEncoderConfig()
 	// 覆盖默认配置
-	config.EncodeTime = zapcore.RFC3339NanoTimeEncoder
+	config.EncodeTime = zapcore.TimeEncoderOfLayout(LogTimeFomate)
 	encoder := zapcore.NewJSONEncoder(config)
 
 	// 按天切割日志写入文件
@@ -88,7 +91,7 @@ func NewStdLogger(level string) (*GLog, error) {
 	l.SetLevel(level)
 	// json格式
 	encoderConf := zap.NewProductionEncoderConfig()
-	encoderConf.EncodeTime = zapcore.ISO8601TimeEncoder
+	encoderConf.EncodeTime = zapcore.TimeEncoderOfLayout(LogTimeFomate)
 	encoder := zapcore.NewConsoleEncoder(encoderConf)
 	core := zapcore.NewCore(encoder, zapcore.Lock(os.Stdout), l.Level)
 	l.zap = zap.New(

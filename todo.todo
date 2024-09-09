@@ -10,6 +10,8 @@
     controller>page>data>dao  => controller>logic>dao
   ✔ jwt解析数据放到request header中 @done(22-06-22 08:34)
     兼容网关鉴权
+  ✔ 数据库任务表消费 @done(24-09-09 15:48)
+  
 
 ===业务demo实践===
 实现简单的登录注册:
