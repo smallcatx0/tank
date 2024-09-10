@@ -71,6 +71,7 @@ type DbJob struct {
 	Logger       *zap.Logger
 	taskBuff     chan ITask // 任务列表缓冲区
 	taskDoneBuff chan int64 // 已成功ids
+	stop         chan struct{}
 
 	WorkerNum        int  // 消费者数量
 	BatNum           int  // 一次从数据库拿多少任务
@@ -89,6 +90,7 @@ func NewDbJob(db *gorm.DB, rds *redis.Client, task ITask, jobName string) (*DbJo
 		taskIns:  task,
 		db:       db,
 		redisCli: rds,
+		stop:     make(chan struct{}, 1),
 	}
 	// 如下参数 先使用默认配置，可在外面修改
 	obj.taskBuff = make(chan ITask, JobBufferCount)
@@ -185,7 +187,12 @@ func (j *DbJob) GoDbComsumer() {
 	fn := func() {
 		defer j.panicRecover()
 		for {
-			j.dbComsumer()
+			select {
+			case <-j.stop:
+				return
+			default:
+				j.dbComsumer()
+			}
 		}
 	}
 	go fn()
@@ -293,7 +300,47 @@ func (j *DbJob) Start() {
 }
 
 func (j *DbJob) Close() {
-	// TODO: 关闭buff,将缓冲区任务改为 init
+	// 不再拿取任务
+	st := time.Now()
+	j.stop <- struct{}{}
+	// 关闭buff,将缓冲区任务改为 init
+	close(j.taskBuff)
+	close(j.taskDoneBuff)
+	ids := []int64{}
+	for v := range j.taskBuff {
+		ids = append(ids, v.ID())
+	}
+	err := j.taskIns.UpdateStatus(j.db, ids, TaskStatus_init)
+	if err != nil {
+		msg := logPre + fmt.Sprintf(
+			"更新任务状态失败。table=%s; ids=(%v); status=%d; err=%s",
+			j.taskIns.TableName(),
+			ids,
+			TaskStatus_runing,
+			err.Error(),
+		)
+		j.Logger.Error(msg)
+	}
+	ids = ids[:0]
+	for v := range j.taskDoneBuff {
+		ids = append(ids, v)
+	}
+	err = j.taskIns.UpdateStatus(j.db, ids, TaskStatus_done)
+	if err != nil {
+		msg := logPre + fmt.Sprintf(
+			"更新任务状态失败。table=%s; ids=(%v); status=%d; err=%s",
+			j.taskIns.TableName(),
+			ids,
+			TaskStatus_runing,
+			err.Error(),
+		)
+		j.Logger.Error(msg)
+	}
+	dt := time.Since(st)
+	j.Logger.Info(logPre + fmt.Sprintf(
+		"%s 任务停止，耗时%dms",
+		j.JobName, dt/time.Millisecond,
+	))
 }
 
 func arrBreakInt64(arr []int64, limit int) [][]int64 {

@@ -54,8 +54,9 @@ func (app *App) Run(port string) {
 }
 
 func (app *App) Stop() {
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, close := context.WithTimeout(context.Background(), 5*time.Second)
 	app.HttpServ.Shutdown(ctx)
+	close()
 }
 
 func (app *App) WaitExit(funs ...func()) {

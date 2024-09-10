@@ -23,7 +23,6 @@ func main() {
 		bootstrap.InitLog,
 		bootstrap.InitDB,
 		bootstrap.Heartbeat,
-		// task.StartSthTask, // 数据库任务消费
 	)
 	app.GinEngibe.Use(httpmd.SetHeader)
 	app.GinEngibe.Use(httpmd.ReqLog)

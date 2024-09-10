@@ -67,15 +67,20 @@ func WaitingExit(funs ...func()) {
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	switch <-quit {
 	case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
+		for _, f := range funs {
+			if f != nil {
+				f()
+			}
+		}
 		log.Printf("Shutdown quickly, bye...")
 	case syscall.SIGHUP:
-		log.Printf("Shutdown gracefully, bye...")
 		// 处理各种服务的优雅关闭
 		for _, f := range funs {
 			if f != nil {
 				f()
 			}
 		}
+		log.Printf("Shutdown gracefully, bye...")
 	}
 	os.Exit(0)
 }

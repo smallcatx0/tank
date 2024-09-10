@@ -11,14 +11,18 @@ import (
 
 // 开始跑起来这个任务
 func StartSthTask() func() {
-	job, err := sthjob.NewDbJob(dao.MysqlCli.Debug(), dao.RedisCli,
-		&BsSthTask{}, "try_sth_task",
+	job, err := sthjob.NewDbJob(
+		dao.MysqlCli.Debug(),
+		dao.RedisCli,
+		&BsSthTask{},
+		"try_sth_task",
 	)
 	if err != nil {
 		glog.ErrorF("[db_job] 启动任务失败 err=%s", "", err.Error())
 		return nil
 	}
 	job.Logger = glog.D().Z()
+
 	// TODO: 下面这些参数从配置文件中获取
 	job.SetBufferNum(10)
 	job.SetDoneBuff(2000)

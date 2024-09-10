@@ -3,7 +3,6 @@ package main
 import (
 	"gtank/bootstrap"
 	"gtank/internal/task"
-	"gtank/models/dao"
 )
 
 func main() {
@@ -13,11 +12,10 @@ func main() {
 	}
 	// 读取配置文件
 	bootstrap.InitConf(&bootstrap.Param.C)
-	// 初始化 数据库
-	dao.MustInitRedis()
-	dao.MustInitMysql()
 	// 初始化日志
 	bootstrap.InitLog()
+	// 初始化 数据库
+	bootstrap.InitDB()
 	// 心跳日志记录
 	bootstrap.Heartbeat()
 
