@@ -12,7 +12,11 @@ import (
 )
 
 var dbIns *gorm.DB
-var dbDsn string
+
+var (
+	// 在单元测试文件中 初始化
+	dbDsn string
+)
 
 func InitDb() {
 	var err error

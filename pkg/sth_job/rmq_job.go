@@ -26,6 +26,7 @@ type RmqJob struct {
 
 func NewRmqJob(cli *redis.Client, name string) (*RmqJob, error) {
 	j := RmqJob{
+		name:          name,
 		redisCli:      cli,
 		Logger:        zap.L(), // 默认使用 zap 全局logger
 		errCh:         make(chan error, 10),

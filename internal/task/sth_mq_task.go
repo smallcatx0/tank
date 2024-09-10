@@ -6,6 +6,7 @@ import (
 	"gtank/pkg/glog"
 	sthjob "gtank/pkg/sth_job"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -49,7 +50,7 @@ func (t *SthMqTask) Run() {
 	if num >= 80 {
 		t.Status = RmqStatus_done
 	} else {
-		t.ErrMsg = "可重试错误"
+		t.ErrMsg = "错误，可重试。num=" + strconv.Itoa(num)
 		t.Status = RmqStatus_fail
 		t.Retry += 1
 	}

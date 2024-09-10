@@ -19,12 +19,12 @@ func main() {
 	// 心跳日志记录
 	bootstrap.Heartbeat()
 
-	dbClose := task.StartSthTask()
-	// rmqClose := task.StartRmqTask()
+	// dbClose := task.StartSthTask()
+	rmqClose := task.StartRmqTask()
 
 	// 等待推出信号
 	bootstrap.WaitingExit(
-		dbClose,
-		// rmqClose,
+		// dbClose,
+		rmqClose,
 	)
 }
