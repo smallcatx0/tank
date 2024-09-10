@@ -17,7 +17,7 @@ import (
 var MysqlCli *gorm.DB
 var MdbPrefix string
 
-func InitMysql() {
+func MustInitMysql() {
 	c := conf.AppConf
 	// 读配置
 	dsn := c.GetString("mysql.dsn")

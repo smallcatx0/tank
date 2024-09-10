@@ -6,9 +6,6 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -63,25 +60,7 @@ func (app *App) Stop() {
 
 func (app *App) WaitExit(funs ...func()) {
 	fs := append([]func(){app.Stop}, funs...)
-	waitExit(fs...)
-}
-
-func waitExit(funs ...func()) {
-	quit := make(chan os.Signal, 4)
-	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	switch <-quit {
-	case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
-		log.Printf("Shutdown quickly, bye...")
-	case syscall.SIGHUP:
-		log.Printf("Shutdown gracefully, bye...")
-		// 处理各种服务的优雅关闭
-		for _, f := range funs {
-			if f != nil {
-				f()
-			}
-		}
-	}
-	os.Exit(0)
+	WaitingExit(fs...)
 }
 
 var (

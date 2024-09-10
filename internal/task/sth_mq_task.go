@@ -2,9 +2,12 @@ package task
 
 import (
 	"encoding/json"
+	"gtank/models/dao"
 	"gtank/pkg/glog"
+	sthjob "gtank/pkg/sth_job"
 	"math/rand"
 	"strings"
+	"time"
 
 	"github.com/adjust/rmq/v5"
 	"go.uber.org/zap"
@@ -41,6 +44,7 @@ func (t *SthMqTask) Unserialize(raw []byte) error {
 
 func (t *SthMqTask) Run() {
 	// 80% 的概率成功
+	time.Sleep(time.Second)
 	num := rand.Intn(100)
 	if num >= 80 {
 		t.Status = RmqStatus_done
@@ -57,6 +61,8 @@ func (t *SthMqTask) Run() {
 		glog.Error("[sth_mq_task] " + string(t.Serialize()))
 	}
 }
+
+var _ rmq.Consumer = SthRetryWorker{}
 
 type SthRetryWorker struct {
 	failQ rmq.Queue // 重试队列（二级队列）
@@ -93,5 +99,38 @@ func IfErrLog(err error, msg ...string) {
 	glog.Error("[sth_mq_task]" + errMsg)
 }
 
-func StartRmqTask() {
+func StartRmqTask() func() {
+	mainQ, err := sthjob.NewRmqJob(dao.RedisCli, "sth_task_main")
+	if err != nil {
+		glog.Error("初始化rmq队列失败")
+		return nil
+	}
+	retryQ, err := sthjob.NewRmqJob(dao.RedisCli, "sth_task_fail")
+	if err != nil {
+		glog.Error("初始化rmq队列失败")
+		return nil
+	}
+	mainWokers := []rmq.Consumer{
+		SthRetryWorker{failQ: retryQ.Queue()},
+		SthRetryWorker{failQ: retryQ.Queue()},
+		SthRetryWorker{failQ: retryQ.Queue()},
+	}
+	retryWorkers := []rmq.Consumer{
+		SthRetryWorker{failQ: retryQ.Queue()},
+	}
+	err = mainQ.Start(mainWokers, 10)
+	if err != nil {
+		glog.Error("启动rmq 消费任务失败")
+		return nil
+	}
+	err = retryQ.Start(retryWorkers, 2)
+	if err != nil {
+		glog.Error("启动rmq 消费任务失败")
+		return nil
+	}
+
+	return func() {
+		mainQ.Close()
+		retryQ.Close()
+	}
 }

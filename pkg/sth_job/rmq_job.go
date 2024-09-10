@@ -43,6 +43,9 @@ func NewRmqJob(cli *redis.Client, name string) (*RmqJob, error) {
 	}
 	return &j, nil
 }
+func (j *RmqJob) Queue() rmq.Queue {
+	return j.q
+}
 
 func (j *RmqJob) Start(workers []rmq.Consumer, rate int64) error {
 	var err error
@@ -86,4 +89,9 @@ func (j *RmqJob) clearUnAcked() {
 			)
 		}
 	}
+}
+
+func (j *RmqJob) Close() {
+	// TODO: 推出
+
 }

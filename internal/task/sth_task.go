@@ -10,13 +10,13 @@ import (
 )
 
 // 开始跑起来这个任务
-func StartSthTask() {
+func StartSthTask() func() {
 	job, err := sthjob.NewDbJob(dao.MysqlCli.Debug(), dao.RedisCli,
 		&BsSthTask{}, "try_sth_task",
 	)
 	if err != nil {
 		glog.ErrorF("[db_job] 启动任务失败 err=%s", "", err.Error())
-		return
+		return nil
 	}
 	job.Logger = glog.D().Z()
 	// TODO: 下面这些参数从配置文件中获取
@@ -29,6 +29,9 @@ func StartSthTask() {
 	job.TimeoutResetD = 60      // 每分钟检查一次 超时任务
 	job.TaskTimeout = 300       // 5分钟在doing 状态被认为超时
 	job.Start()
+	return func() {
+		job.Close()
+	}
 }
 
 // 一张任务表
