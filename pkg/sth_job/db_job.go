@@ -86,6 +86,7 @@ type DbJob struct {
 func NewDbJob(db *gorm.DB, rds *redis.Client, task ITask, jobName string) (*DbJob, error) {
 	lockkey := fmt.Sprintf(LogKeyTpl, task.TableName(), jobName)
 	obj := DbJob{
+		JobName:  jobName,
 		lockKey:  lockkey,
 		taskIns:  task,
 		db:       db,
