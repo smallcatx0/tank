@@ -93,6 +93,5 @@ func (j *RmqJob) clearUnAcked() {
 }
 
 func (j *RmqJob) Close() {
-	// TODO: 推出
-
+	<-j.q.StopConsuming()
 }

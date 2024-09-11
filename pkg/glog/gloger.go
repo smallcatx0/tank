@@ -66,13 +66,25 @@ func NewFileLogger(filename, level string) (*GLog, error) {
 	config.EncodeTime = zapcore.TimeEncoderOfLayout(LogTimeFomate)
 	encoder := zapcore.NewJSONEncoder(config)
 
+	lessInfo := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
+		return level >= l.Level.Level() && level < zapcore.WarnLevel
+	})
+	gteWarn := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
+		return level >= zapcore.WarnLevel
+	})
 	// 按天切割日志写入文件
-	writer, err := fileWriterByDay(filename)
+	infoWriter, err := fileWriter(filename, time.Hour, "")
 	if err != nil {
 		return nil, err
 	}
-
-	core := zapcore.NewCore(encoder, writer, l.Level)
+	errWriter, err := fileWriter(filename, time.Hour*24, "_err")
+	if err != nil {
+		return nil, err
+	}
+	core := zapcore.NewTee(
+		zapcore.NewCore(encoder, infoWriter, lessInfo),
+		zapcore.NewCore(encoder, errWriter, gteWarn),
+	)
 	l.zap = zap.New(
 		core,
 		zap.AddCaller(),
@@ -126,18 +138,15 @@ func (l *GLog) Printf(tpl string, args ...interface{}) {
 	)
 }
 
-func fileWriterByDay(filename string) (zapcore.WriteSyncer, error) {
+func fileWriter(filename string, rotaTime time.Duration, level string) (zapcore.WriteSyncer, error) {
 	ext := filepath.Ext(filename)
-	path := filepath.Dir(filename)
-	file := filepath.Base(filename)
-	filebase := file[:len(file)-len(ext)]
-	filename = filebase + "-%Y-%m-%d" + ext
-	filename = filepath.Join(path, filename)
-
+	logfile := filename[:len(filename)-len(ext)] + level + ".%Y%m%d%H" + ext
+	// currFile := filename[:len(filename)-len(ext)] + level + ext
 	hook, err := rotatelogs.New(
-		filename,
-		rotatelogs.WithMaxAge(time.Hour*24*365),
-		rotatelogs.WithRotationTime(time.Hour*24),
+		logfile,
+		// rotatelogs.WithLinkName(currFile),
+		rotatelogs.WithMaxAge(time.Hour*24*180),
+		rotatelogs.WithRotationTime(rotaTime),
 	)
 
 	if err != nil {

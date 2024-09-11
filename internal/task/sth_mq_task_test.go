@@ -16,7 +16,7 @@ var redisCli *redis.Client
 func InitRedis() {
 	var err error
 	redisCli, err = dao.ConnRedis(&redis.Options{
-		Addr: "local.serv:6379",
+		Addr: "127.0.0.1:6379",
 	})
 	if err != nil {
 		log.Panic(err.Error())
@@ -24,7 +24,7 @@ func InitRedis() {
 }
 
 const (
-	MaxCount = 1000000
+	MaxCount = 500000
 )
 
 func Test_AddTasks(t *testing.T) {

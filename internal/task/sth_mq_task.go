@@ -2,11 +2,11 @@ package task
 
 import (
 	"encoding/json"
+	"fmt"
 	"gtank/models/dao"
 	"gtank/pkg/glog"
 	sthjob "gtank/pkg/sth_job"
 	"math/rand"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,7 +23,11 @@ const (
 )
 
 const (
-	SthMaxRetry uint8 = 5
+	SthMaxRetry uint8 = 3
+)
+
+var (
+	ErrLogger = zap.L()
 )
 
 type SthMqTask struct {
@@ -46,17 +50,18 @@ func (t *SthMqTask) Unserialize(raw []byte) error {
 func (t *SthMqTask) Run() {
 	// 80% 的概率成功
 	time.Sleep(time.Second)
-	num := rand.Intn(100)
-	if num >= 80 {
+	score := rand.Intn(100)
+	if score >= 80 {
 		t.Status = RmqStatus_done
 	} else {
-		t.ErrMsg = "错误，可重试。num=" + strconv.Itoa(num)
+		now := time.Now().Format("01-02 15:04:05.000")
+		t.ErrMsg += fmt.Sprintf("%s(%d)", now, score) + " | "
 		t.Status = RmqStatus_fail
 		t.Retry += 1
 	}
 
 	if t.Retry >= SthMaxRetry {
-		t.ErrMsg = "都重试5次了，别重试了"
+		t.ErrMsg = t.ErrMsg[:len(t.ErrMsg)-3]
 		t.Status = RmqStatus_error
 		// 记录 错误记录
 		glog.Error("[sth_mq_task] " + string(t.Serialize()))
