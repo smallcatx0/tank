@@ -3,6 +3,7 @@ package main
 import (
 	"gtank/bootstrap"
 	"gtank/internal/task"
+	"log"
 )
 
 func main() {
@@ -21,7 +22,7 @@ func main() {
 
 	// dbClose := task.StartSthTask()
 	rmqClose := task.StartRmqTask()
-
+	log.Printf("task worker run")
 	// 等待推出信号
 	bootstrap.WaitingExit(
 		// dbClose,

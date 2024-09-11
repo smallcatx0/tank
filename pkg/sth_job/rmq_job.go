@@ -81,17 +81,47 @@ func (j *RmqJob) clearUnAcked() {
 	var count int64
 	var err error
 	for {
+		<-ticker.C
 		count, err = cleaner.Clean()
 		if err != nil {
 			j.Logger.Error(err.Error())
 		} else {
 			j.Logger.Info(
-				fmt.Sprintf("清理未ack任务，count=%d", count),
+				fmt.Sprintf("清理未ack任务，queue=%s, count=%d", j.name, count),
 			)
 		}
 	}
 }
 
+func (j *RmqJob) MeticLog(dt time.Duration) string {
+	ticker := time.NewTicker(dt)
+	defer ticker.Stop()
+	var stat rmq.Stats
+	var err error
+	for {
+		<-ticker.C
+		stat, err = j.Metic()
+		if err != nil {
+			j.Logger.Error(err.Error())
+		} else {
+			j.Logger.Info("rmq metic", zap.Any("stat", stat.QueueStats))
+		}
+	}
+}
+func (j *RmqJob) Metic() (rmq.Stats, error) {
+	queues, err := j.conn.GetOpenQueues()
+	if err != nil {
+		return rmq.Stats{}, err
+	}
+	return j.conn.CollectStats(queues)
+}
+
 func (j *RmqJob) Close() {
+	st := time.Now()
 	<-j.q.StopConsuming()
+	dt := time.Since(st)
+	j.Logger.Info(fmt.Sprintf(
+		"%s 队列消费停止，耗时%dms",
+		j.name, dt/time.Millisecond,
+	))
 }

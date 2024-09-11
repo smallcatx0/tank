@@ -51,17 +51,17 @@ func (t *SthMqTask) Run() {
 	// 80% 的概率成功
 	time.Sleep(time.Second)
 	score := rand.Intn(100)
-	if score >= 80 {
+	if score >= 60 {
 		t.Status = RmqStatus_done
 	} else {
-		now := time.Now().Format("01-02 15:04:05.000")
-		t.ErrMsg += fmt.Sprintf("%s(%d)", now, score) + " | "
+		now := time.Now().Format("15:04:05.000")
+		t.ErrMsg += fmt.Sprintf("%s(%d)", now, score) + "|"
 		t.Status = RmqStatus_fail
 		t.Retry += 1
 	}
 
 	if t.Retry >= SthMaxRetry {
-		t.ErrMsg = t.ErrMsg[:len(t.ErrMsg)-3]
+		t.ErrMsg = t.ErrMsg[:len(t.ErrMsg)-1]
 		t.Status = RmqStatus_error
 		// 记录 错误记录
 		glog.Error("[sth_mq_task] " + string(t.Serialize()))
@@ -116,12 +116,16 @@ func StartRmqTask() func() {
 		glog.Error("初始化rmq队列失败")
 		return nil
 	}
+	mainQ.Logger = glog.D().Z()
+	retryQ.Logger = glog.D().Z()
 	mainWokers := []rmq.Consumer{
+		SthRetryWorker{failQ: retryQ.Queue()},
 		SthRetryWorker{failQ: retryQ.Queue()},
 		SthRetryWorker{failQ: retryQ.Queue()},
 		SthRetryWorker{failQ: retryQ.Queue()},
 	}
 	retryWorkers := []rmq.Consumer{
+		SthRetryWorker{failQ: retryQ.Queue()},
 		SthRetryWorker{failQ: retryQ.Queue()},
 	}
 	err = mainQ.Start(mainWokers, 10)
@@ -129,12 +133,12 @@ func StartRmqTask() func() {
 		glog.Error("启动rmq 消费任务失败")
 		return nil
 	}
-	err = retryQ.Start(retryWorkers, 2)
+	err = retryQ.Start(retryWorkers, 4)
 	if err != nil {
 		glog.Error("启动rmq 消费任务失败")
 		return nil
 	}
-
+	go mainQ.MeticLog(time.Second * 10)
 	return func() {
 		mainQ.Close()
 		retryQ.Close()
