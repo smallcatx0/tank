@@ -18,21 +18,21 @@ func TestFile(t *testing.T) {
 
 	glog.Debug("test debug ")
 	glog.Debug("test debug with requestId", "requestId")
-	glog.Debug("test debug with more", "requestId", "extra one", "extra two")
-	glog.DebugT("test debug json", "requestId", param, param)
-	glog.DebugF("test debug template age=%d", "requestId", 23)
+	glog.Debug("test debug with more", "extra one", "extra two")
+	glog.DebugT("test debug json", param, param)
+	glog.DebugF("test debug template age=%d", 23)
 
-	glog.Info("测试INFO 级别完整信息", "requestId", "扩展信息1", "扩展信息2")
-	glog.InfoF("测试模板日志name=%s", "requestId", "kui")
-	glog.InfoT("测试模板日志Json扩展信息", "requestId", param, param)
+	glog.Info("测试INFO 级别完整信息", "扩展信息1", "扩展信息2")
+	glog.InfoF("测试模板日志name=%s", "kui")
+	glog.InfoT("测试模板日志Json扩展信息", param, param)
 
-	glog.Warn("测试warn级别完整信息", "requestId", "扩展信息1", "扩展信息2")
-	glog.WarnF("测试模板日志name=%s", "requestId", "kui")
-	glog.WarnT("测试模板日志Json扩展信息", "requestId", param, param)
+	glog.Warn("测试warn级别完整信息", "扩展信息1", "扩展信息2")
+	glog.WarnF("测试模板日志name=%s", "kui")
+	glog.WarnT("测试模板日志Json扩展信息", param, param)
 
-	glog.Error("测试warn级别完整信息", "requestId", "扩展信息1", "扩展信息2")
-	glog.ErrorF("测试模板日志name=%s", "requestId", "kui")
-	glog.ErrorT("测试模板日志Json扩展信息", "requestId", param, param)
+	glog.Error("测试warn级别完整信息", "扩展信息1", "扩展信息2")
+	glog.ErrorF("测试模板日志name=%s", "kui")
+	glog.ErrorT("测试模板日志Json扩展信息", param, param)
 
 	glog.DPanic("测试DPanic级别完整信息", "request-dadfmwesd", "扩展信息1", "扩展信息2")
 

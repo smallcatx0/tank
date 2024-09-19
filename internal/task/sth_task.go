@@ -18,7 +18,7 @@ func StartSthTask() func() {
 		"try_sth_task",
 	)
 	if err != nil {
-		glog.ErrorF("[db_job] 启动任务失败 err=%s", "", err.Error())
+		glog.ErrorF("[db_job] 启动任务失败 err=%s", err.Error())
 		return nil
 	}
 	job.Logger = glog.D().Z()
@@ -69,7 +69,7 @@ func (t *BsSthTask) UpdateStatus(db *gorm.DB, ids []int64, status sthjob.TaskSta
 func (t *BsSthTask) Run(db *gorm.DB) sthjob.TaskStatus {
 	// 模拟消费任务
 	time.Sleep(time.Second)
-	glog.InfoF("[sth_task] 模拟消费 任务ID=%d 耗时1s", "", t.Id)
+	glog.InfoF("[sth_task] 模拟消费 任务ID=%d 耗时1s", t.Id)
 	return sthjob.TaskStatus_done
 }
 

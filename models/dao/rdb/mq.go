@@ -41,7 +41,7 @@ func (b *HttpBody) Build(jsonStr string) (err error) {
 func (mq *Mq) Push(msg MqMsg) {
 	res := dao.RedisCli.LPush(context.Background(), mq.Key, msg.String())
 	if err := res.Err(); err != nil {
-		glog.Error("PushQueue err", "", err.Error())
+		glog.Error("PushQueue err", err.Error())
 	}
 }
 
