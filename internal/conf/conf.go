@@ -1,8 +1,26 @@
 package conf
 
-import "github.com/spf13/viper"
+import (
+	"os"
+
+	"github.com/spf13/viper"
+)
 
 var AppConf *viper.Viper
+
+var hostname string
+
+func HostName() string {
+	if hostname != "" {
+		return hostname
+	}
+	var err error
+	hostname, err = os.Hostname()
+	if err != nil {
+		return "unknow"
+	}
+	return hostname
+}
 
 func InitAppConf(filepath *string) error {
 	AppConf = viper.New()

@@ -2,9 +2,7 @@ package dbstrategy
 
 import (
 	"context"
-	"crypto/md5"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -20,64 +18,13 @@ const (
 	logPre = "[db_strategy]"
 )
 
-var (
-	hostname = ""
-)
-
-func HostName() string {
-	if hostname != "" {
-		return hostname
-	}
-	var err error
-	hostname, err = os.Hostname()
-	if err != nil {
-		return "unknow"
-	}
-	return hostname
-}
-
-// TabledataTtl 数据TTL策略表
-type TabledataTtl struct {
-	ID         int64  `gorm:"id"`
-	UnKey      string `grom:"unkey"`       // 策略唯一key
-	Dsn        string `gorm:"dsn"`         // 数据库链接
-	DbName     string `gorm:"db_name"`     // 数据库名
-	Tablename  string `gorm:"table_name"`  // 表名
-	ColumnName string `gorm:"column_name"` // 依据字段名
-	ColumnType string `gorm:"column_type"` // 依据字段类型
-	TtlValue   int64  `gorm:"ttl_value"`   // TTL过期时间
-	Limit      int64  `gorm:"limit"`       // 一次执行条数
-	Spec       string `gorm:"spec"`        // cron表达式
-	Desc       string `gorm:"desc"`        // 描述
-}
-
-func (*TabledataTtl) TableName() string {
-	return "tabledata_ttl"
-}
-
-func (t *TabledataTtl) GetTTLCfg(db *gorm.DB) ([]TabledataTtl, error) {
-	ttls := []TabledataTtl{}
-	err := db.Find(ttls).Error
-	return ttls, err
-}
-
-func (t *TabledataTtl) md5() string {
-	h := md5.New()
-	h.Write([]byte(t.TableName() + t.UnKey + t.Spec))
-	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
-const (
-	ColumType_Unix      = "unix"      // 时间戳数据库中 整数保存时间
-	ColumType_Timestamp = "timestamp" // 时间戳
-	ColumType_Datetime  = "datetime"  // 日期时间
-)
-
 type DbStrategy struct {
 	Logger   *zap.Logger
 	cron     *cron.Cron
 	db       *gorm.DB // 配置表所在的数据库链接
 	redisCli *redis.Client
+	ttl      *TabledataTtl
+	retry    *TabledataRetry
 	cronFunc map[string]cron.EntryID
 }
 
@@ -85,6 +32,8 @@ func NewDbStrategy() (*DbStrategy, error) {
 	s := &DbStrategy{
 		Logger:   zap.NewExample(),
 		cronFunc: make(map[string]cron.EntryID),
+		ttl:      new(TabledataTtl),
+		retry:    new(TabledataRetry),
 	}
 	s.cron = newSecCron()
 	return s, nil
@@ -104,14 +53,32 @@ func newSecCron() *cron.Cron {
 	)
 }
 
+// TODO: 考虑如何更新定时任务策略
+
 func (s *DbStrategy) Regist() {
+
 	// 查询配置 cron定时任务中
-	ttls, err := new(TabledataTtl).GetTTLCfg(s.db)
+	ttls, err := s.ttl.GetCfgs(s.db)
 	if err != nil {
-		s.Logger.Error(logPre + "查询数据库配置失败" + err.Error())
+		s.Logger.Error(logPre + fmt.Sprintf(
+			"查询数据%s库配置失败, err=%s",
+			s.ttl.TableName(), err.Error(),
+		))
 	} else {
 		fmt.Println(ttls)
 		// TODO: 依次加入定时任务中
+		// 记得使用临时数据库连接，并及时释放
+	}
+	retrys, err := s.retry.GetCfgs(s.db)
+	if err != nil {
+		s.Logger.Error(logPre + fmt.Sprintf(
+			"查询数据%s库配置失败, err=%s",
+			s.retry.TableName(), err.Error(),
+		))
+	} else {
+		fmt.Println(retrys)
+		// TODO: 依次加入定时任务中
+		// 记得使用临时数据库连接，并及时释放
 	}
 
 }
@@ -193,3 +160,5 @@ func (s *DbStrategy) deteleTableRecord(db *gorm.DB, cfg TabledataTtl) error {
 	s.Logger.Info(fmt.Sprintf(logPre+"sql=%s 删除%d条", sql, deletedNum))
 	return nil
 }
+
+// TODO: 数据库重试逻辑

@@ -54,7 +54,7 @@ func httpConsume(res string) {
 	hd := make(map[string]string, 5)
 	json.Unmarshal([]byte(reqBody.Header), &hd)
 
-	// TODO:每两秒，消费一条
+	// TODO: 每两秒，消费一条
 	time.Sleep(time.Second * 2)
 	HttpCli.SetMethod(reqBody.Method).
 		SetUri(reqBody.Url).
