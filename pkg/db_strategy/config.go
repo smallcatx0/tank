@@ -29,16 +29,20 @@ func HostName() string {
 }
 
 type TabledataRetry struct {
-	ID        int64  `gorm:"id"`
-	Unkey     string `gorm:"unkey"`      // 任务唯一名
-	Dsn       string `gorm:"dsn"`        // 数据库链接
-	Tablename string `gorm:"table_name"` // 表名
-	Before    int64  `gorm:"before"`     // 从当前时间之前多少秒
-	Limit     int64  `gorm:"limit"`      // 一次执行条数
-	Findsql   string `gorm:"findsql"`    // 查询SQL
-	Updatesql string `gorm:"updatesql"`  // 更新SQL
-	Spec      string `gorm:"spec"`       // cron表达式
-	Desc      string `gorm:"desc"`       // 描述
+	ID         int64  `gorm:"id"`
+	Unkey      string `gorm:"unkey"`       // 任务唯一名
+	Dsn        string `gorm:"dsn"`         // 数据库链接
+	DbName     string `gorm:"db_name"`     // 数据库名
+	Tablename  string `gorm:"table_name"`  // 表名
+	ColumnName string `gorm:"column_name"` // 依据字段名
+	ColumnType string `gorm:"column_type"` // 依据字段类型
+	FindWh     string `gorm:"find_wh"`     // 查找条件
+	SetFields  string `gorm:"set_fields"`  // 更新的字段
+	Before     int64  `gorm:"before"`      // 从当前时间之前多少秒
+	Duration   int64  `gorm:"duration"`    // 时间间隔
+	Limit      int64  `gorm:"limit"`       // 一次执行条数
+	Spec       string `gorm:"spec"`        // cron表达式
+	Desc       string `gorm:"desc"`        // 描述
 }
 
 func (*TabledataRetry) TableName() string {

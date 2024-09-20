@@ -40,9 +40,7 @@ func MustInitMysql() {
 }
 
 func ConnMysql(dsn string, isDebug bool) (db *gorm.DB, err error) {
-	w := &MmyLog{
-		logger: glog.D().Z().With(zap.String("type", "sql_log")),
-	}
+	w := &ZapWriter{glog.D().Z().With(zap.String("type", "sql_log"))}
 	logger := logger.New(w, logger.Config{
 		SlowThreshold: time.Millisecond * 200,
 		LogLevel:      logger.Silent,
@@ -81,16 +79,16 @@ func CloseTmpMysql(db *gorm.DB) {
 }
 
 // 接管mysql 日志
-type MmyLog struct {
-	logger *zap.Logger
+type ZapWriter struct {
+	*zap.Logger
 }
 
-func (l *MmyLog) Printf(tpl string, args ...interface{}) {
+func (w *ZapWriter) Printf(tpl string, args ...interface{}) {
 	tpl = strings.ReplaceAll(tpl, "\n", " ")
 	msg := "[sql] " + fmt.Sprintf(tpl, args...)
 	if _, ok := args[1].(error); ok {
-		l.logger.Error(msg)
+		w.Error(msg)
 	} else {
-		l.logger.Info(msg)
+		w.Info(msg)
 	}
 }
