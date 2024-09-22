@@ -244,8 +244,8 @@ func (s *DbStrategy) updateTableTecord(cfg TabledataRetry) error {
 		"UPDATE `%s` SET %s WHERE %s",
 		cfg.Tablename, cfg.SetFields, findWhere,
 	)
-	s.Logger.Info("[findSql] " + findSql)
-	s.Logger.Info("[updateSql] " + updateSql)
+	s.Logger.Debug(logPre + "findSql: " + findSql)
+	s.Logger.Debug(logPre + "updateSql: " + updateSql)
 	res := CountRes{}
 	err = db.Raw(findSql).First(&res).Error
 	if err != nil {

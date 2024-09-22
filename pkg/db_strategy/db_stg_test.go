@@ -13,6 +13,8 @@ import (
 )
 
 var test_db_dsn string
+var test_redis_addr string
+
 var ttl = TabledataTtl{
 	ID:         1,
 	UnKey:      "bs_sth_unitest",
@@ -21,7 +23,7 @@ var ttl = TabledataTtl{
 	ColumnName: "updated_at",
 	ColumnType: ColumType_Timestamp,
 	Limit:      100,
-	TtlValue:   18000, // 超时时间 s
+	TtlValue:   3600 * 24 * 30, // 保存一个月
 }
 
 func Test_deteleTableRecord(t *testing.T) {
@@ -68,7 +70,7 @@ var (
 func MustInitDao() {
 	var err error
 	redisCli, err = dao.ConnRedis(&redis.Options{
-		Addr: "127.0.0.1:6379",
+		Addr: test_redis_addr,
 	})
 	if err != nil {
 		panic(err)
