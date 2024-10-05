@@ -62,7 +62,7 @@ func TestTry(t *testing.T) {
 	producerInstance.Start()
 	logs := make([]*sls.Log, 0, 10)
 	for i := 0; i < 10; i++ {
-		logs = append(logs, buildLogItem("test_metric", map[string]string{"key1": strconv.Itoa(i)}, float64(i)))
+		logs = append(logs, buildLogItem("test_metric", map[string]string{"key1": strconv.Itoa(i), "key2": "vvv"}, float64(i)))
 	}
 	producerInstance.SendLogList(project, logstore, "", "local-test", logs)
 
