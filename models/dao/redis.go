@@ -33,7 +33,6 @@ func MustInitRedis() {
 	if err != nil {
 		log.Panic("[store_redis]redis初始化失败，err=", err)
 	}
-	return
 }
 
 func ConnRedis(opt *redis.Options) (*redis.Client, error) {

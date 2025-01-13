@@ -1,8 +1,12 @@
 package bootstrap
 
+/**
+初始化文件
+*/
 import (
 	"fmt"
 	"gtank/internal/conf"
+	"gtank/internal/task"
 	"gtank/models/dao"
 	"gtank/pkg/glog"
 	"log"
@@ -60,6 +64,17 @@ func Heartbeat() {
 			glog.SysStatInfo()
 		}
 	}()
+}
+
+// 常驻内存任务
+func InitResidentTask() []func() {
+	close := []func(){}
+	// 定时任务平台
+	if conf.AppConf.GetBool("cronjob.enable") {
+		call := task.StartCronJob()
+		close = append(close, call)
+	}
+	return close
 }
 
 func WaitingExit(funs ...func()) {
