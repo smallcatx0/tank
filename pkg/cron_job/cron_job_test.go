@@ -17,7 +17,7 @@ func InitRedis() {
 	var err error
 	redisCli, err = dao.ConnRedis(&redis.Options{
 		Addr: "127.0.0.1:6379",
-		DB:   3,
+		DB:   0,
 	})
 	if err != nil {
 		log.Panic(err.Error())
@@ -59,5 +59,15 @@ func Test_redis(t *testing.T) {
 	logger := zap.NewExample()
 	job, err := NewCronJob(logger, redisCli)
 	assert.NoError(t, err)
-	job.lock("test")
+	job.lock("test_1")
+	job.lock("test_2")
+}
+
+func Test_RmHostJob(t *testing.T) {
+	InitRedis()
+
+	logger := zap.NewExample()
+	job, err := NewCronJob(logger, redisCli)
+	assert.NoError(t, err)
+	job.RmHostJob()
 }

@@ -1,5 +1,3 @@
-.vscode
-!.vscode/launch.json
 go.sum
 *.exe
 **/logs/*.log

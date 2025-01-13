@@ -106,22 +106,26 @@ end
 func (c *CronJob) RmHostJob() {
 	luaScript := `
 local keys = redis.call('KEYS', KEYS[1])
-for _, key in ipais(keys) do
+local affect = 0
+for _, key in ipairs(keys) do
 	local val = redis.call("GET", key)
 	if val == ARGV[1] then
 		redis.call("DEL", key)
+		affect = affect + 1
 	end
 end
+return affect
 `
-	err := c.redisCli.Eval(
+	res := c.redisCli.Eval(
 		context.Background(),
 		luaScript,
-		[]string{lockKeyPre},
+		[]string{lockKeyPre + "*"},
 		c.hostname,
-	).Err()
-	if err != nil {
-		c.Logger.Error("[cronjob]清除本机残余redis key 失败")
+	)
+	if res.Err() != nil {
+		c.Logger.Error("[cronjob]清除本机残余redis key 失败", zap.Error(res.Err()))
 	}
+	c.Logger.Info(fmt.Sprintf("[cronjob]清除本机残余redis key(%d)成功", res.Val().(int64)))
 }
 
 func (c *CronJob) SetFunc(name, spec string, f func()) error {

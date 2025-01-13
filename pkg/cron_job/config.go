@@ -6,6 +6,9 @@ import (
 
 const (
 	CommandType_Http = "http"
+
+	Status_Online  = "online"
+	Status_Offline = "offline"
 )
 
 type CronTask struct {
@@ -16,7 +19,7 @@ type CronTask struct {
 	Ctype   string `gorm:"ctype"`   // 命令类型
 	Command string `gorm:"command"` // 命令详情
 	Limit   int64  `gorm:"limit"`   // 执行次数
-	Status  int8   `gorm:"status"`  // 状态 任务状态 1:启用 2:停用
+	Status  string `gorm:"status"`  // 状态 任务状态 online:启用 offline:停用
 }
 
 // TableName 表名称
@@ -26,8 +29,8 @@ func (*CronTask) TableName() string {
 
 func GetCronTaskCfgs(db *gorm.DB) ([]CronTask, error) {
 	cfgs := []CronTask{}
-	err := db.Find(cfgs).
-		Where("status = ?", 1).
+	err := db.Find(&cfgs).
+		Where("status = ?", Status_Online).
 		Error
 	return cfgs, err
 }
