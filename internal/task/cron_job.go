@@ -8,7 +8,7 @@ import (
 
 // 根据数据库初始化定时任务
 func StartCronJob() func() {
-	job, err := cronjob.NewCronJob(
+	job, err := cronjob.NewCronJob("testcj",
 		glog.D().Z(), dao.RedisCli)
 	if err != nil {
 		glog.Error("[cronjob]初始化任务: " + err.Error())
@@ -23,7 +23,6 @@ func StartCronJob() func() {
 		return nil
 	}
 	job.RmHostJob()
-	job.InitByDb(cfgs)
-
+	job.PushBat(cfgs)
 	return job.Close
 }

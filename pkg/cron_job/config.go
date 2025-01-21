@@ -1,6 +1,9 @@
 package cronjob
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"gorm.io/gorm"
 )
 
@@ -20,6 +23,19 @@ type CronTask struct {
 	Command string `gorm:"command"` // 命令详情
 	Limit   int64  `gorm:"limit"`   // 执行次数
 	Status  string `gorm:"status"`  // 状态 任务状态 online:启用 offline:停用
+}
+
+// 序列化/反序列化
+func (c *CronTask) String() string {
+	data, _ := json.Marshal(*c)
+	return string(data)
+}
+func (c *CronTask) Build(data string) error {
+	return json.Unmarshal([]byte(data), c)
+}
+
+func (c *CronTask) Unikey() string {
+	return fmt.Sprintf("%d#%s", c.ID, c.Name)
 }
 
 // TableName 表名称

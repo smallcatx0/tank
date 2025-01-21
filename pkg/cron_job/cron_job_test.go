@@ -39,7 +39,7 @@ func Test_CronJob(t *testing.T) {
 	InitRedis()
 
 	logger := zap.NewExample()
-	job, err := NewCronJob(logger, redisCli)
+	job, err := NewCronJob("testcj", logger, redisCli)
 	assert.NoError(t, err)
 	job.Start()
 	job.SetFunc("test_smpl", "*/10 * * * * *", func() {
@@ -57,7 +57,7 @@ func Test_redis(t *testing.T) {
 	InitRedis()
 
 	logger := zap.NewExample()
-	job, err := NewCronJob(logger, redisCli)
+	job, err := NewCronJob("testcj", logger, redisCli)
 	assert.NoError(t, err)
 	job.lock("test_1")
 	job.lock("test_2")
@@ -67,7 +67,59 @@ func Test_RmHostJob(t *testing.T) {
 	InitRedis()
 
 	logger := zap.NewExample()
-	job, err := NewCronJob(logger, redisCli)
+	job, err := NewCronJob("testcj", logger, redisCli)
 	assert.NoError(t, err)
 	job.RmHostJob()
+}
+
+var cfg = CronTask{
+	ID:      3,
+	Name:    "testcj",
+	Desc:    "testcj",
+	Cron:    "@every 5s",
+	Ctype:   "shell",
+	Command: "echo \"testcj\"",
+	Limit:   1,
+	Status:  "online",
+}
+
+func Test_MsgNotify(t *testing.T) {
+	InitRedis()
+	logger := zap.NewExample()
+	job, err := NewCronJob("testcj", logger, redisCli)
+	assert.NoError(t, err)
+	job.Push(cfg)
+	job.Push(cfg)
+	job.Push(cfg)
+	job.Push(cfg)
+	job.Push(cfg)
+
+}
+
+func Test_ACMsg(t *testing.T) {
+	InitRedis()
+	logger := zap.NewExample()
+	job, err := NewCronJob("testcj", logger, redisCli)
+	assert.NoError(t, err)
+	job.Start()
+	time.Sleep(time.Second * 60)
+}
+
+func Test_cfgStrbuild(t *testing.T) {
+	cfg := &CronTask{
+		ID:      1,
+		Name:    "testcj",
+		Desc:    "testcj",
+		Cron:    "@every 5s",
+		Ctype:   "shell",
+		Command: "1",
+		Limit:   1,
+		Status:  "online",
+	}
+	data := cfg.String()
+	t.Log(string(data))
+	cfg2 := &CronTask{}
+	err := cfg2.Build(data)
+	assert.NoError(t, err)
+	assert.Equal(t, cfg, cfg2)
 }

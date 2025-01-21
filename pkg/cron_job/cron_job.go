@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	lockKeyPre = "bs:cron_task_" // redis key 前缀
+	RedisKeyPre = "bs:cron_job:" // redis key 前缀
 )
 
 var (
@@ -25,26 +25,32 @@ var (
 )
 
 type CronJob struct {
-	hostname string
-	cron     *cron.Cron
-	Logger   *zap.Logger
-	redisCli *redis.Client
-	taskMapp map[string]cron.EntryID
-	Funcs    map[string]func() // func 任务列表
+	name        string
+	hostname    string
+	cron        *cron.Cron
+	Logger      *zap.Logger
+	redisCli    *redis.Client
+	taskMapp    map[string]cron.EntryID
+	Funcs       map[string]func() // func 任务列表
+	storeKeyPre string
+	notifyKey   string
 }
 
-func NewCronJob(logger *zap.Logger, redisCli *redis.Client) (*CronJob, error) {
+func NewCronJob(name string, logger *zap.Logger, redisCli *redis.Client) (*CronJob, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
 	}
 	logger.With(logFlag, zap.String("hostname", hostname))
 	job := &CronJob{
-		hostname: hostname,
-		cron:     cron.New(),
-		Logger:   logger,
-		redisCli: redisCli,
-		taskMapp: make(map[string]cron.EntryID),
+		name:        name,
+		hostname:    hostname,
+		cron:        cron.New(),
+		Logger:      logger,
+		redisCli:    redisCli,
+		taskMapp:    make(map[string]cron.EntryID),
+		storeKeyPre: RedisKeyPre + name + ":",
+		notifyKey:   RedisKeyPre + name + "_notify",
 	}
 	cronLogger := &cronLog{Logger: logger, InfoLog: true}
 	c := cron.New(
@@ -59,7 +65,7 @@ func NewCronJob(logger *zap.Logger, redisCli *redis.Client) (*CronJob, error) {
 }
 
 func (c *CronJob) lock(name string) bool {
-	key := lockKeyPre + name
+	key := c.storeKeyPre + name
 	res := c.redisCli.SetNX(
 		context.Background(),
 		key, c.hostname,
@@ -85,7 +91,7 @@ else
 	return 0
 end
 	`
-	key := lockKeyPre + name
+	key := c.storeKeyPre + name
 	res := c.redisCli.Eval(
 		context.Background(),
 		luaScript,
@@ -119,7 +125,7 @@ return affect
 	res := c.redisCli.Eval(
 		context.Background(),
 		luaScript,
-		[]string{lockKeyPre + "*"},
+		[]string{c.storeKeyPre + "*"},
 		c.hostname,
 	)
 	if res.Err() != nil {
@@ -160,6 +166,7 @@ func (c *CronJob) Remove(name string) {
 
 func (c *CronJob) Start() {
 	c.cron.Start()
+	go c.Notify()
 }
 
 func (c *CronJob) Close() {
@@ -170,34 +177,72 @@ func (c *CronJob) Close() {
 	c.cron.Stop()
 }
 
-func (c *CronJob) InitByDb(cfgs []CronTask) {
-	for _, cfg := range cfgs {
+func (c *CronJob) Push(cfg CronTask) {
+	payload := cfg.String()
+	err := c.redisCli.LPush(context.Background(), c.notifyKey, payload).Err()
+	if err != nil {
+		c.Logger.Error("LPush err", zap.Error(err))
+		return
+	}
+}
+
+func (c *CronJob) PushBat(cfgs []CronTask) {
+	for _, v := range cfgs {
+		c.Push(v)
+	}
+}
+
+// 接受新增/删除消息
+func (c *CronJob) Notify() {
+	for {
+		// 监听消息
+		res := c.redisCli.BRPop(context.Background(), 0, c.notifyKey)
+		if res.Err() != nil {
+			c.Logger.Error("[cronjob]获取redis消息失败", zap.Error(res.Err()))
+			continue
+		}
+		playload := res.Val()
+		if len(playload) != 2 {
+			c.Logger.Error("[cronjob]获取redis消息失败", zap.Any("playload", playload))
+			continue
+		}
+		c.Logger.Info("[cronjob]收到redis消息", zap.Any("playload", playload))
+		cfg := &CronTask{}
+		err := cfg.Build(playload[1])
+		if err != nil {
+			c.Logger.Error("[cronjob]解析redis消息失败", zap.Error(err))
+			continue
+		}
 		switch cfg.Ctype {
 		case CommandType_Http:
-			logger := c.Logger.With(logJobName(cfg.Name))
-			httpCfg := &CommandHttp{}
-			err := json.Unmarshal([]byte(cfg.Command), httpCfg)
-			if err != nil {
-				logger.Error("[cronjob]解析http任务失败", zap.Error(err))
-				continue
-			}
-			cmd, err := MakeCommandHttp(httpCfg, logger)
-			if err != nil {
-				logger.Error("[cronjob]构建http任务失败", zap.Error(err))
-				continue
-			}
-			uniJobName := fmt.Sprintf("%d#%s", cfg.ID, cfg.Name)
-			err = c.SetFunc(uniJobName, cfg.Cron, cmd)
-			if err != nil {
-				logger.Error("[cronjob]添加任务失败", zap.Error(err))
-				continue
-			}
-			logger.Info("[cronjob]添加任务成功")
+			c.AddHttpTask(cfg)
+			// TODO: 支持其他类型的func
 		}
-		// TODO: 支持其他类型的func
-
 	}
+}
 
+func (c *CronJob) AddHttpTask(cfg *CronTask) {
+	logger := c.Logger.With(logJobName(cfg.Name))
+	if cfg.Ctype != CommandType_Http {
+		logger.Error("[cronjob]非Http任务: " + cfg.String())
+		return
+	}
+	httpCfg := &CommandHttp{}
+	err := json.Unmarshal([]byte(cfg.Command), httpCfg)
+	if err != nil {
+		logger.Error("[cronjob]解析http任务失败", zap.Error(err))
+	}
+	cmd, err := MakeCommandHttp(httpCfg, logger)
+	if err != nil {
+		logger.Error("[cronjob]构建http任务失败", zap.Error(err))
+		return
+	}
+	err = c.SetFunc(cfg.Unikey(), cfg.Cron, cmd)
+	if err != nil {
+		logger.Error("[cronjob]添加任务失败", zap.Error(err))
+		return
+	}
+	logger.Info("[cronjob]添加任务成功")
 }
 
 type cronLog struct {
