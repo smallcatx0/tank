@@ -23,6 +23,9 @@ func StartCronJob() func() {
 		return nil
 	}
 	job.RmHostJob()
-	job.PushBat(cfgs)
+	for _, cfg := range cfgs {
+		// 不走消息通知，直接竞争加入任务
+		job.AddTask(&cfg)
+	}
 	return job.Close
 }

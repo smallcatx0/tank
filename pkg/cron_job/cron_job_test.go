@@ -88,11 +88,13 @@ func Test_MsgNotify(t *testing.T) {
 	logger := zap.NewExample()
 	job, err := NewCronJob("testcj", logger, redisCli)
 	assert.NoError(t, err)
-	job.Push(cfg)
-	job.Push(cfg)
-	job.Push(cfg)
-	job.Push(cfg)
-	job.Push(cfg)
+	job.Start()
+	job.Publish(PubSub_Add, cfg)
+	job.Publish(PubSub_Del, cfg)
+	job.Publish(PubSub_Add, cfg)
+	job.Publish(PubSub_Del, cfg)
+	job.Publish(PubSub_Add, cfg)
+	job.Publish(PubSub_Del, cfg)
 
 }
 
