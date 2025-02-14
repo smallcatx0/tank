@@ -14,7 +14,12 @@ import (
 )
 
 const (
+	RedisKeySeq = ":"
 	RedisKeyPre = "bs:cron_job:" // redis key 前缀
+
+	// 事件类型
+	PubSub_Add = "add"
+	PubSub_Del = "del"
 )
 
 var (
@@ -30,10 +35,10 @@ type CronJob struct {
 	cron        *cron.Cron
 	Logger      *zap.Logger
 	redisCli    *redis.Client
-	taskMapp    map[string]cron.EntryID
-	Funcs       map[string]func() // func 任务列表
-	storeKeyPre string
-	notifyKey   string
+	taskMapp    map[string]cron.EntryID // 本机运行的任务
+	Funcs       map[string]func()       // TODO: func 任务列表
+	storeKeyPre string                  // 任务分布情况 保存一份在redis中
+	notifyKey   string                  // 任务通知 redis pub/sub key
 }
 
 func NewCronJob(name string, logger *zap.Logger, redisCli *redis.Client) (*CronJob, error) {
@@ -49,7 +54,7 @@ func NewCronJob(name string, logger *zap.Logger, redisCli *redis.Client) (*CronJ
 		Logger:      logger,
 		redisCli:    redisCli,
 		taskMapp:    make(map[string]cron.EntryID),
-		storeKeyPre: RedisKeyPre + name + ":",
+		storeKeyPre: RedisKeyPre + name + RedisKeySeq,
 		notifyKey:   RedisKeyPre + name + "_notify",
 	}
 	cronLogger := &cronLog{Logger: logger, InfoLog: true}
@@ -166,7 +171,7 @@ func (c *CronJob) Remove(name string) {
 
 func (c *CronJob) Start() {
 	c.cron.Start()
-	go c.Notify()
+	go c.SubScribe()
 }
 
 func (c *CronJob) Close() {
@@ -177,50 +182,59 @@ func (c *CronJob) Close() {
 	c.cron.Stop()
 }
 
-func (c *CronJob) Push(cfg CronTask) {
-	payload := cfg.String()
-	err := c.redisCli.LPush(context.Background(), c.notifyKey, payload).Err()
+// 发布增删消息
+func (c *CronJob) Publish(eventType string, task CronTask) error {
+	payload := eventType + task.String()
+	c.Logger.Info("[cronjob]发布消息, payload=" + payload)
+	_, err := c.redisCli.Publish(
+		context.Background(),
+		c.notifyKey,
+		payload,
+	).Result()
 	if err != nil {
-		c.Logger.Error("LPush err", zap.Error(err))
-		return
+		c.Logger.Error("[cronjob]发布消息失败", zap.Error(err))
+		return err
 	}
+	return nil
 }
 
-func (c *CronJob) PushBat(cfgs []CronTask) {
-	for _, v := range cfgs {
-		c.Push(v)
-	}
-}
-
-// 接受新增/删除消息
-func (c *CronJob) Notify() {
-	for {
-		// 监听消息
-		res := c.redisCli.BRPop(context.Background(), 0, c.notifyKey)
-		if res.Err() != nil {
-			c.Logger.Error("[cronjob]获取redis消息失败", zap.Error(res.Err()))
+// 监听增删消息
+func (c *CronJob) SubScribe() {
+	var err error
+	pubsub := c.redisCli.Subscribe(context.Background(), c.notifyKey)
+	defer pubsub.Close()
+	ch := pubsub.Channel()
+	for msg := range ch {
+		c.Logger.Info("[cronjob]收到消息 payload=" + msg.Payload)
+		if len(msg.Payload) < 3 {
+			c.Logger.Error("[cronjob]消息格式错误 payload=" + msg.Payload)
 			continue
 		}
-		playload := res.Val()
-		if len(playload) != 2 {
-			c.Logger.Error("[cronjob]获取redis消息失败", zap.Any("playload", playload))
-			continue
-		}
-		c.Logger.Info("[cronjob]收到redis消息", zap.Any("playload", playload))
-		cfg := &CronTask{}
-		err := cfg.Build(playload[1])
+		eventType := msg.Payload[:3]
+		task := CronTask{}
+		err = task.Build(msg.Payload[3:])
 		if err != nil {
-			c.Logger.Error("[cronjob]解析redis消息失败", zap.Error(err))
+			c.Logger.Error("[cronjob]消息格式错误 payload=" + msg.Payload)
 			continue
 		}
-		switch cfg.Ctype {
-		case CommandType_Http:
-			c.AddHttpTask(cfg)
-			// TODO: 支持其他类型的func
+		switch eventType {
+		case PubSub_Add:
+			c.AddTask(&task)
+		case PubSub_Del:
+			c.Remove(task.Unikey())
+		default:
+			c.Logger.Error("[cronjob]消息类型错误 payload=" + msg.Payload)
 		}
 	}
 }
 
+func (c *CronJob) AddTask(cfg *CronTask) {
+	switch cfg.Ctype {
+	case CommandType_Http:
+		c.AddHttpTask(cfg)
+		// TODO: 支持其他类型的任务
+	}
+}
 func (c *CronJob) AddHttpTask(cfg *CronTask) {
 	logger := c.Logger.With(logJobName(cfg.Name))
 	if cfg.Ctype != CommandType_Http {
