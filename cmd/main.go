@@ -17,13 +17,13 @@ func main() {
 	}
 	// 读取配置文件
 	bootstrap.InitConf(&bootstrap.Param.C)
+	bootstrap.InitLog()
+	bootstrap.InitDB()
+	bootstrap.Heartbeat()
+	// 常驻内存任务
+	close := bootstrap.InitResidentTask()
+
 	app := bootstrap.NewApp(conf.IsDebug())
-	// 初始化操作
-	app.Use(
-		bootstrap.InitLog,
-		bootstrap.InitDB,
-		bootstrap.Heartbeat,
-	)
 	app.GinEngibe.Use(httpmd.SetHeader)
 	app.GinEngibe.Use(httpmd.ReqLog)
 	// 注册路由
@@ -31,5 +31,7 @@ func main() {
 	// 启动HTTP 服务
 	app.Run(conf.HttpPort())
 	// 等待退出
-	app.WaitExit()
+	app.WaitExit(
+		close...,
+	)
 }

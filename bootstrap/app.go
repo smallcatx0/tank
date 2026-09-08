@@ -50,7 +50,6 @@ func (app *App) Run(port string) {
 			log.Panic("[http-serv]", err)
 		}
 	}()
-
 }
 
 func (app *App) Stop() {
