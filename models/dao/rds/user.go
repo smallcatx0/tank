@@ -1,4 +1,4 @@
-package mdb
+package rds
 
 import (
 	"database/sql"

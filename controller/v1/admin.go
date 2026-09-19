@@ -3,8 +3,8 @@ package v1
 import (
 	"gtank/middleware/resp"
 	"gtank/models/dao"
-	"gtank/models/dao/mdb"
-	"gtank/valid"
+	"gtank/models/dao/rds"
+	"gtank/models/valid"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,7 +19,7 @@ func (UserAdmin) List(c *gin.Context) {
 		return
 	}
 
-	q := dao.MysqlCli.Model(&mdb.User{}).Omit("pass")
+	q := dao.MysqlCli.Model(&rds.User{}).Omit("pass")
 	if p.Id != 0 {
 		q = q.Where("id=?", p.Id)
 	}
@@ -45,14 +45,14 @@ func (UserAdmin) List(c *gin.Context) {
 		return
 	}
 	if pg.Total == 0 {
-		resp.Paginate(c, *pg, nil)
+		resp.Paginate(c, pg, nil)
 		return
 	}
-	users := make([]mdb.User, 0, pg.Limit)
+	users := make([]rds.User, 0, pg.Limit)
 	err = q.Find(&users).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
 	}
-	resp.Paginate(c, *pg, users)
+	resp.Paginate(c, pg, users)
 }

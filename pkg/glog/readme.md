@@ -23,9 +23,13 @@ glog.InitLog2std("Info")
 ```go
 // Debug Info Warn Error DPanic Painc Fatal 等级的日志均有如下方法
 glog.Debug("msg")
-glog.Debug("msg", "requestId", "extra one", "extra two")
-glog.DebugT("msg", "requestId", param, param) // param都会被json序列化
-glog.DebugF("测试模板日志age=%d", "requestId", 23) 
+glog.Debug("msg",  "extra one", "extra two")
+glog.DebugT("msg", param, param) // param都会被json序列化
+glog.DebugF("测试模板日志age=%d",23)
+
+// 活得原生的 zap 实例
+glog.L() // 返回的是 全局默认的 *zap.Logger
+ 
 ```
 
 `/home/logs/tank/curr.log`  日志文件中 每行json

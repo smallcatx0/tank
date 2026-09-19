@@ -80,7 +80,7 @@ func (q SthRetryWorker) Consume(dv rmq.Delivery) {
 	err := task.Unserialize([]byte(raw))
 	if err != nil {
 		// 丢回去下次消费依然反序列化失败，直接记录日志后ACK吧
-		glog.D().Z().Error("消费数据失败", zap.String("task_raw", raw))
+		glog.L().Error("消费数据失败", zap.String("task_raw", raw))
 		err = dv.Ack()
 		IfErrLog(err)
 		return

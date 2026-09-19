@@ -3,8 +3,8 @@ package v1
 import (
 	"gtank/middleware/resp"
 	"gtank/models/dao"
-	"gtank/models/dao/mdb"
-	"gtank/valid"
+	"gtank/models/dao/rds"
+	"gtank/models/valid"
 	"strings"
 	"time"
 
@@ -22,7 +22,7 @@ func (User) RegistByPhone(c *gin.Context) {
 		return
 	}
 	// 先判断手机号是否存在
-	u := &mdb.User{
+	u := &rds.User{
 		Phone: param.Phone,
 	}
 	exist, err := u.GetByPhone()
@@ -34,7 +34,7 @@ func (User) RegistByPhone(c *gin.Context) {
 		resp.Fail(c, resp.ParamInValid("手机号已经存在"))
 		return
 	}
-	u = &mdb.User{
+	u = &rds.User{
 		Phone: param.Phone,
 	}
 	u.User = u.AutoUseName() // 自动生成用户名
@@ -53,7 +53,7 @@ func (User) RegistByPhone(c *gin.Context) {
 	})
 }
 
-func grantToken(u mdb.User) (string, error) {
+func grantToken(u rds.User) (string, error) {
 	j := &valid.JWTData{
 		Uid:   u.Id,
 		User:  u.User,
@@ -70,7 +70,7 @@ func (User) LoginByPhone(c *gin.Context) {
 		resp.Fail(c, err)
 		return
 	}
-	u := &mdb.User{
+	u := &rds.User{
 		Phone: param.Phone,
 	}
 	exist, err := u.GetByPhone()
@@ -100,7 +100,7 @@ func (User) LoginByPwd(c *gin.Context) {
 		resp.Fail(c, err)
 		return
 	}
-	u := &mdb.User{User: p.User}
+	u := &rds.User{User: p.User}
 	ok, err := u.GetByUser()
 	if err != nil {
 		resp.Fail(c, err)
@@ -143,7 +143,7 @@ func (User) Info(c *gin.Context) {
 		UpdatedAt time.Time `gorm:"column:updated_at" json:"updated_at"`
 	}
 	u := User{}
-	err := dao.MysqlCli.Model(&mdb.User{}).First(&u, t.Uid).Error
+	err := dao.MysqlCli.Model(&rds.User{}).First(&u, t.Uid).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -164,7 +164,7 @@ func (User) ModPass(c *gin.Context) {
 		resp.Fail(c, resp.NoLogin)
 		return
 	}
-	u := &mdb.User{}
+	u := &rds.User{}
 	err = dao.MysqlCli.First(u, t.Uid).Error
 	if err != nil {
 		resp.Fail(c, err)
@@ -210,7 +210,7 @@ func (User) ModInfo(c *gin.Context) {
 		resp.Fail(c, err)
 		return
 	}
-	u := &mdb.User{}
+	u := &rds.User{}
 	// 判断user是否存在
 	if p.User != "" {
 		u.Id = t.Uid

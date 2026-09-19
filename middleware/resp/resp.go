@@ -60,7 +60,7 @@ func Fail(c *gin.Context, err error) {
 	Response(c, err)
 }
 
-func Paginate(c *gin.Context, pg Pagination, list interface{}) {
+func Paginate(c *gin.Context, pg *Pagination, list interface{}) {
 	Succ(c, map[string]interface{}{
 		"page": pg,
 		"list": list,

@@ -3,7 +3,7 @@ package httpmd
 import (
 	"encoding/json"
 	"gtank/middleware/resp"
-	"gtank/valid"
+	"gtank/models/valid"
 	"net/url"
 	"strings"
 
@@ -18,13 +18,13 @@ func JwtAuth() func(c *gin.Context) {
 			c.Abort()
 			return
 		}
-		data, err := valid.JWTPase(token)
+		data, err := valid.JWTParse(token)
 		if err == nil {
 			// 将解析信息写入header
 			raw, _ := json.Marshal(data.JWTData)
 			p := url.QueryEscape(string(raw))
-			c.Request.Header.Add("xu-info", p)
-			c.Set("xu-info", data.JWTData)
+			c.Request.Header.Add("jwtinfo", p)
+			c.Set("jwtinfo", data.JWTData)
 			return
 		}
 		resp.Fail(c, err)

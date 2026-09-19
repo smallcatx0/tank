@@ -60,5 +60,5 @@ func Test_loglevel(t *testing.T) {
 	ologger.Z().Debug("debug日志")
 	ologger.Z().Info("info日志")
 
-	glog.D().Z().Info("使用默认实例 记录日志")
+	glog.L().Info("使用默认实例 记录日志")
 }

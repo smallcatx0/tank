@@ -20,8 +20,8 @@ func main() {
 	// 心跳日志记录
 	bootstrap.Heartbeat()
 
-	// dbClose := task.StartSthTask()
-	rmqClose := task.StartRmqTask()
+	// dbClose := task.StartSthTask() // 启动数据库任务
+	rmqClose := task.StartRmqTask() // 启动RabbitMQ任务
 	log.Printf("task worker run")
 	// 等待推出信号
 	bootstrap.WaitingExit(

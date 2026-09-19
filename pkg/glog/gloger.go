@@ -49,6 +49,10 @@ func D() *GLog {
 	return defIns
 }
 
+func L() *zap.Logger {
+	return defIns.zap
+}
+
 // 新建文件实例
 func NewFileLogger(filename, level string) (*GLog, error) {
 	l := GLog{
@@ -112,6 +116,7 @@ func NewStdLogger(level string) (*GLog, error) {
 	)
 	return &l, nil
 }
+
 func (l *GLog) Z() *zap.Logger {
 	return l.zap
 }
@@ -153,4 +158,23 @@ func fileWriter(filename string, rotaTime time.Duration, level string) (zapcore.
 		return nil, err
 	}
 	return zapcore.AddSync(hook), nil
+}
+
+// 初始化控制台日志
+func InitLog2std(level string) {
+	logger, err := NewStdLogger(level)
+	if err != nil {
+		panic("[init]stdout日志初始化失败")
+	}
+	defIns = logger
+}
+
+// 初始化文件日志
+func InitLog2file(filename, level string) {
+	// 按天切割日志
+	logger, err := NewFileLogger(filename, level)
+	if err != nil {
+		panic("[init]文件日志初始化失败")
+	}
+	defIns = logger
 }

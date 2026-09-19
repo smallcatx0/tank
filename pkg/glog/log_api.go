@@ -153,5 +153,5 @@ func SysStatInfo() {
 		info = append(info, zap.Int("cpu_percent", int(sum*1000)/len(cpuInfo)))
 	}
 	info = append(info, zap.Int("goroutine", runtime.NumGoroutine()))
-	D().Z().Info("system stat metrics", info...)
+	L().Info("system stat metrics", info...)
 }

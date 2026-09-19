@@ -20,8 +20,6 @@ func main() {
 	bootstrap.InitLog()
 	bootstrap.InitDB()
 	bootstrap.Heartbeat()
-	// 常驻内存任务
-	close := bootstrap.InitResidentTask()
 
 	app := bootstrap.NewApp(conf.IsDebug())
 	app.GinEngibe.Use(httpmd.SetHeader)
@@ -31,7 +29,5 @@ func main() {
 	// 启动HTTP 服务
 	app.Run(conf.HttpPort())
 	// 等待退出
-	app.WaitExit(
-		close...,
-	)
+	app.WaitExit()
 }

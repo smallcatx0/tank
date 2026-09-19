@@ -114,7 +114,7 @@ func (j *JWTData) Generate() (string, error) {
 	return t.SignedString([]byte("sk"))
 }
 
-func JWTPase(token string) (*Claim, error) {
+func JWTParse(token string) (*Claim, error) {
 	t, err := jwt.ParseWithClaims(token, &Claim{}, func(t *jwt.Token) (interface{}, error) {
 		return []byte("sk"), nil
 	})
@@ -137,21 +137,21 @@ func JWTPase(token string) (*Claim, error) {
 
 // 获取jwt中的用户信息
 func UserInfo(c *gin.Context) (*JWTData, bool) {
-	data, ok := c.Get("xu-info")
+	data, ok := c.Get("jwtinfo")
 	if !ok {
 		// 解析
-		return UserInfoPase(c)
+		return UserInfoParse(c)
 	}
 	ret, ok := data.(JWTData)
 	return &ret, ok
 }
 
-func UserInfoPase(c *gin.Context) (*JWTData, bool) {
+func UserInfoParse(c *gin.Context) (*JWTData, bool) {
 	tokenStr := strings.TrimSpace(c.GetHeader("Authorization"))
 	if tokenStr == "" {
 		return nil, false
 	}
-	raw, err := JWTPase(tokenStr)
+	raw, err := JWTParse(tokenStr)
 	if err != nil {
 		return nil, false
 	}

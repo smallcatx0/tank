@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"gtank/models/dao/rdb"
-	"gtank/valid"
+	"gtank/models/valid"
 
 	"github.com/gin-gonic/gin"
 	request "github.com/smallcatx0/gequest"
