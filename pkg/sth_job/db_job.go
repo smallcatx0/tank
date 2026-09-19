@@ -134,8 +134,8 @@ func (j *DbJob) GoTaskRun() {
 // 从数据库中拿一批任务放入缓冲区
 func (j *DbJob) dbComsumer() {
 	if j.lock() {
-		// 未获得锁,等待10s
-		time.Sleep(time.Second * 10)
+		// 未获得锁,按配置休眠后再尝试
+		time.Sleep(time.Second * time.Duration(j.NoLockedSleep))
 		return
 	}
 	var msg string

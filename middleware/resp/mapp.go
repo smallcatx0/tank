@@ -2,7 +2,7 @@ package resp
 
 import "net/http"
 
-var (
+const (
 	// errcode枚举
 	Code_Succ = 0
 	Code_Fail = 1

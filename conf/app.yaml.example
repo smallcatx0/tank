@@ -7,6 +7,10 @@ metrics_dt: 10 # 系统监控间隔
 env: dev # 可选 dev test pre prod
 http_port: 8081
 
+# JWT配置
+jwt:
+  secret: "sk" # 签名密钥，生产环境务必改为随机长字符串并与开发环境区分
+
 # 主数据库
 mysql:
   debug: true

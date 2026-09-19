@@ -1,6 +1,7 @@
 package valid
 
 import (
+	"gtank/internal/conf"
 	"gtank/middleware/resp"
 	"gtank/models/dao/cal"
 	"regexp"
@@ -111,12 +112,12 @@ func (j *JWTData) Generate() (string, error) {
 	c.ExpiresAt = time.Now().Add(time.Hour).Unix()
 	c.JWTData = *j
 	t.Claims = c
-	return t.SignedString([]byte("sk"))
+	return t.SignedString([]byte(conf.JwtSecret()))
 }
 
 func JWTParse(token string) (*Claim, error) {
 	t, err := jwt.ParseWithClaims(token, &Claim{}, func(t *jwt.Token) (interface{}, error) {
-		return []byte("sk"), nil
+		return []byte(conf.JwtSecret()), nil
 	})
 	if err != nil {
 		if e, ok := err.(*jwt.ValidationError); ok {

@@ -48,7 +48,7 @@ func Response(c *gin.Context, err error) {
 			b.Msg = "服务错误"
 		}
 	}
-	b.RequestID = c.GetHeader(RequestIDKey)
+	b.RequestID = c.GetString(RequestIDKey) // 中间件统一写入的值，与 SuccJsonRaw 保持一致
 	c.JSON(httpCode, &b)
 }
 

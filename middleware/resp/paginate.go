@@ -9,6 +9,7 @@ import (
 
 const (
 	MAX_LIMIT = 1000
+	DEF_LIMIT = 10 // 默认每页条数，与 NewPage 保持一致
 )
 
 // 分页规范
@@ -32,7 +33,7 @@ func NewPagination(page, limit int) *Pagination {
 		pg.Limit = MAX_LIMIT
 	}
 	if limit < 1 {
-		pg.Limit = limit
+		pg.Limit = DEF_LIMIT // 非法值归一，避免 Calc 除零
 	}
 	return pg
 }
@@ -49,8 +50,12 @@ func (p *Pagination) Calc(total int) {
 	if p.Total%p.Limit != 0 {
 		p.TotalPage = p.TotalPage + 1
 	}
-	if p.Page > p.TotalPage {
+	// 先钳制页码（上不超过总页数、下不小于 1），再算偏移量
+	if p.TotalPage > 0 && p.Page > p.TotalPage {
 		p.Page = p.TotalPage
+	}
+	if p.Page < 1 {
+		p.Page = 1
 	}
 	p.Offset = (p.Page - 1) * p.Limit
 }
