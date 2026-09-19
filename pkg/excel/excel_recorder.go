@@ -2,7 +2,8 @@ package excel
 
 import (
 	"fmt"
-	"gtank/pkg/helper"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/tidwall/gjson"
@@ -72,7 +73,7 @@ func (e *ExcelRecorder) Save() error {
 	if e.FileNameTemplate != "" {
 		e.FilePath = fmt.Sprintf(e.FileNameTemplate, e.Page)
 	}
-	helper.TouchDir(e.FilePath)
+	TouchDir(e.FilePath)
 	if err := e.ExcelFp.SaveAs(e.FilePath); err != nil {
 		return err
 	}
@@ -164,4 +165,26 @@ func JsonKeys(json string) []string {
 		return true
 	})
 	return keys
+}
+
+// TouchDir 创建文件夹
+func TouchDir(path string) error {
+	dir, _ := filepath.Split(path)
+	if FileExists(dir) {
+		return nil
+	}
+	err := os.MkdirAll(dir, 0666)
+	return err
+}
+
+// FileExists 检查文件是否存在
+func FileExists(file string) bool {
+	_, err := os.Stat(file)
+	if err == nil {
+		return true //文件或者文件夹存在
+	}
+	if os.IsNotExist(err) {
+		return false //不存在
+	}
+	return false //不存在，这里的err可以查到具体的错误信息
 }

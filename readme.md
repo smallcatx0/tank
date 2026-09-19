@@ -207,4 +207,4 @@ go build -o bin/worker ./cmd/sth_worker            # 异步任务 Worker
 
 ## TODO
 
-- [ ]  **`pkg/excel` 引入了本地 `pkg/helper`**，`pkg` 作为可复用层宜保持零本地依赖，可将通用函数内联或下沉
+- [v]  **`pkg/excel` 引入了本地 `pkg/helper`**，`pkg` 作为可复用层宜保持零本地依赖，可将通用函数内联或下沉
