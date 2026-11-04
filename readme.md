@@ -1,210 +1,97 @@
-# gtank 架构说明
+# serv_tpl
 
-> 一个结构规范、分层清晰、可快速落地的 Go HTTP 服务端脚手架，内置统一响应/异常体系、链路追踪、分布式任务消费、配置热加载与优雅退出等生产级能力。
+Go 服务脚手架，提供 HTTP API、可选 gRPC、MySQL/GORM、Redis、zap 日志和进程退出管理。
 
----
+## 本地启动
 
-**不断迭代，永远要与自己和解**
+需要 Go 1.26（见 [go.mod](go.mod)）、MySQL 和 Redis。以下命令在仓库根目录使用 POSIX shell（如 sh、bash）执行：
 
-## 总体概览
-
-### 多进程模型
-
-同一套代码产出多个可执行体，共享 `bootstrap / models / pkg` 等基础设施：
-
-| 进程        | 入口                       | 职责                                                  |
-| --------- | ------------------------ | --------------------------------------------------- |
-| API 服务    | `cmd/main.go`            | 对外提供 HTTP 接口（用户端 `/v1`、后台 `/admin`、探活）              |
-| 任务 Worker | `cmd/sth_worker/main.go` | 常驻消费异步任务（消息队列 / 数据库表任务） ；作为独立的 worker 端，可**快速水平扩容** |
-
-### 技术栈
-
-| 领域      | 选型                          | 说明                        |
-| ------- | --------------------------- | ------------------------- |
-| Web 框架  | Gin v1.10.0                 | 路由、中间件、参数绑定               |
-| ORM     | GORM v1.21.9 + mysql driver | 数据访问，SQL 日志接管至 zap        |
-| 缓存 / 队列 | go-redis/v9                 | 缓存、分布式锁、轻量消息队列            |
-| 消息队列    | adjust/rmq/v5               | 基于 Redis 的高性能可靠队列         |
-| 定时任务    | robfig/cron/v3              | 秒级 cron，配合分布式锁防重          |
-| 鉴权      | golang-jwt/v4               | JWT 签发与解析                 |
-| 配置      | viper v1.7.1                | YAML 配置、支持热加载             |
-| 日志      | zap v1.27.0 + rotatelogs    | 结构化 JSON 日志、按时间切割         |
-| 系统监控    | gopsutil/v3                 | CPU / 内存 / goroutine 指标采集 |
-| 导出      | excelize v2 + gjson         | JSON 流式写入 Excel、分页导出      |
-| 日志投递    | aliyun-log-go-sdk           | 阿里云 SLS 生产者               |
-| 工具      | lancet / uuid / testify     | 通用工具、唯一 ID、测试断言           |
-
----
-
-## 分层架构
-
-### 分层视图
-
-```
-                        ┌──────────────────────────────────────────┐
-   进程入口              │  cmd/main.go (API)   cmd/sth_worker (任务)  │
-                        └───────────────┬────────────────────────────┘
-                                        │ 统一编排
-                        ┌───────────────▼────────────────────────────┐
-   引导层 bootstrap     │  配置/日志/DB 初始化 · 心跳监控 · 优雅退出      │
-                        └───────────────┬────────────────────────────┘
-                                        │
-   ┌────────────────────────────────────┼────────────────────────────────────┐
-   │                          HTTP 请求链路 (API 进程)                         │
-   ▼                                    ▼                                      ▼
-┌─────────┐  路由   ┌────────────┐ 校验/绑定 ┌───────────┐  调用  ┌──────────┐ 落库 ┌──────────┐
-│ routes  │ ──────> │ controller │ ───────> │models/valid│ ─────>│ service  │ ───> │models/dao│
-│ +中间件 │         │  接口入口   │          │  入参规范   │       │ 业务编排  │     │ MySQL/Redis
-└─────────┘         └─────┬──────┘          └───────────┘       └──────────┘     └────┬─────┘
-                          │ 统一出口                                                   │
-                    ┌─────▼──────┐                                              存储/外部接口
-                    │ middleware │  响应格式 / 错误码 / 分页 / JWT / traceid
-                    │   resp     │
-                    └────────────┘
-
-   任务消费链路 (Worker 进程)： pkg/sth_job (RmqJob / DbJob) + pkg/db_strategy (定时策略) ──> models/dao
-   横切复用层 pkg： glog · excel · helper · sth_job · db_strategy （已解耦，可跨项目引入）
+```shell
+# conf/app.yaml 不存在时复制；已有配置请直接编辑，不要覆盖
+test -f conf/app.yaml || cp conf/app.yaml.example conf/app.yaml
 ```
 
-### 依赖方向（单向，禁止反向依赖）
+编辑 MySQL DSN 与 Redis 地址/密码，确保数据库存在。服务不自动建库建表。
 
-```
-cmd → bootstrap → routes → controller → { models/valid, models/service } → models/dao → 存储
-                          ↘ middleware ↙            ↘ pkg ↙
-```
-
-**约束**：`bootstrap/global` 与 `pkg/*` 作为可复用层，不应引用业务本地包，保持无环与可移植性。
-
----
-
-## 目录结构与职责
-
-| 目录                   | 分层  | 职责                                                                                                     |
-| -------------------- | --- | ------------------------------------------------------------------------------------------------------ |
-| `cmd/`               | 入口  | `main.go` API 服务入口；`sth_worker/main.go` 异步任务 Worker 入口                                                 |
-| `bootstrap/`         | 引导  | 生命周期编排：`app.go`(App 封装 gin/http.Server、flag)、`init.go`(Conf/Log/DB 初始化、心跳、优雅退出)、`global/`(全局常量，不引用本地包) |
-| `conf/`              | 配置  | `app.yaml`(+example) 运行配置，`worker.yaml` 任务进程配置                                                         |
-| `internal/conf/`     | 配置  | 基于 viper 的配置单例 `AppConf` 与访问器（Env/Debug/Port）                                                          |
-| `routes/`            | 路由  | 路由总入口，注册健康检查、`/v1` 对外接口、`/admin` 后台接口                                                                  |
-| `controller/`        | 接口  | HTTP 逻辑入口：参数接收、调用服务、返回响应（`health.go`、`v1/`）                                                            |
-| `middleware/httpmd/` | 中间件 | `SetHeader`(traceid)、`ReqLog`(请求日志)、`JwtAuth`(鉴权)                                                      |
-| `middleware/resp/`   | 中间件 | **统一响应格式、异常体系、错误码、分页**（详见该包 readme）                                                                    |
-| `models/valid/`      | 校验  | 入参模型定义 + 绑定校验 + JWT 生成/解析（详见该包 readme）                                                                 |
-| `models/service/`    | 业务  | 业务编排（如 `mq.go` Redis 列表队列的 HTTP 推送生产/消费）                                                               |
-| `models/dao/`        | 数据  | 数据访问：`mysql.go`/`redis.go` 连接初始化；子包 `rdb`(Redis 工具/队列)、`rds`(用户模型)、`cal`(验证码)、`slscal`(SLS 投递)         |
-| `pkg/`               | 复用  | 已解耦可复用组件：`sth_job`、`db_strategy`、`glog`、`excel`、`helper`                                               |
-| `doc/`               | 文档  | 规范、接口文档、分布式任务消费、定时任务平台等设计文档                                                                            |
-
----
-
-## 核心流程
-
-### 服务启动（API 进程）
-
-```
-init: InitFlag 解析命令行(-config/-help)
-main:
-  1. InitConf   加载 YAML 配置（viper，含默认值兜底）
-  2. InitLog    按配置初始化 zap（stdout / 按时间切割的文件日志）
-  3. InitDB     初始化 MySQL(gorm) 与 Redis，配置连接池
-  4. Heartbeat  开启系统指标周期采集（CPU/内存/goroutine）
-  5. NewApp     构建 gin 引擎（debug/release 模式）
-  6. Use        挂载全局中间件：SetHeader(traceid) → ReqLog
-  7. RegisterRoutes  注册全部路由
-  8. Run        启动 HTTP 监听（非阻塞 goroutine）
-  9. WaitExit   阻塞等待信号，触发优雅关闭
+```shell
+go run ./cmd/api -config conf/app.yaml
 ```
 
-### 一次鉴权请求的生命周期
+API 默认监听 HTTP 8080，gRPC 默认关闭。在另一个终端检查：
 
-```
-Client ──HTTP──> /v1/user/info
-  → SetHeader    生成/透传 x-b3-traceid，写入 Context 与响应头
-  → JwtAuth      解析 Authorization token，成功则 c.Set("jwtinfo", 用户信息)
-  → controller   valid.UserInfo(c) 命中上下文缓存；valid.Bind*AndCheck 绑定并校验入参
-  → service/dao  查询 MySQL / Redis
-  → resp.Succ/Fail 统一封装 {errcode, msg, data, request_id} 输出
+```shell
+curl -fsS http://localhost:8080/healthz
+curl -fsS http://localhost:8080/ready
+curl -fsS http://localhost:8080/
 ```
 
-### 优雅退出
+`/healthz` 表示进程存活，`/ready` 表示 HTTP 生命周期就绪，不持续探测下游。HTTP 和 gRPC 业务接入、协议生成与调用步骤见 [业务接入指南](业务接入指南.md)。
 
-`bootstrap.WaitingExit` 捕获 `SIGINT/SIGTERM/SIGHUP`，**逆序执行注册的关闭函数**：HTTP `Shutdown`(5s 超时) → 任务 Worker 的 `job.Close()`（将缓冲区未完成任务回滚为初始、已完成回写 done），最大限度避免请求/任务中断与丢失。
+运行 worker：
 
----
-
-## 核心模块详解
-
-### bootstrap —— 引导与生命周期
-
-- `app.go`：`App` 结构封装 `gin.Engine` 与 `http.Server`，提供 `NewApp/RegisterRoutes/Run/Stop/WaitExit`；并集中命令行参数解析（`-config`、`-help`）。
-- `init.go`：`InitConf`/`InitLog`/`InitDB` 分步初始化，`Heartbeat` 周期采集系统指标，`WaitingExit` 统一信号处理与优雅关闭。
-
-### middleware/resp —— 统一响应与异常
-
-- 所有出口固定 `{errcode, msg, data, request_id}` 结构；HTTP 状态码与业务码绑定。
-- `Exception` 类型 + 预置错误码（参数错误 10000、未登录 10004、token 非法 10006 等），普通 error 在生产环境自动隐藏细节、dev 环境回显。
-- `Pagination` 与 gorm 集成，一步完成 `Count + Offset/Limit`。
-- 详见 `middleware/resp/readme.md`。
-
-### models/valid —— 入参校验与身份
-
-- `binding` tag 基础校验 + `Valid()` 自定义校验两段式，校验错误直接复用 resp 异常体系。
-- 承载 JWT 生成/解析与 `UserInfo(c)` 当前登录用户获取（缓存 key 统一为 `jwtinfo`）。
-- 详见 `models/valid/readme.md`。
-
-### pkg/sth_job —— 双模式分布式任务框架
-
-- **RmqJob**：基于 adjust/rmq 封装，队列创建、多 Worker 注册、限速消费、未 ACK 定时清理、指标采集、优雅关闭。
-- **DbJob**：以「数据库表即队列 + Redis 分布式锁」实现多实例消费，仅依赖 MySQL+Redis；任务状态全程落库可审计可重跑，批量拉取 + 成功状态批量回写降低写压力，短锁设计 + 超时重置兜底。
-- 详见 `pkg/sth_job/readme.md`。
-
-### pkg/db_strategy —— 配置驱动的定时数据策略
-
-- 读取数据库配置表（`tabledata_ttl` / `tabledata_retry`）注册 cron 定时任务；
-- 到期数据自动分批删除（TTL）、超时状态自动重试更新；Redis 锁保障多实例不重复执行。
-
-### pkg/glog · excel · helper —— 通用复用组件
-
-- `glog`：zap 封装，支持 stdout/文件、按时间切割、动态级别、系统指标日志、钉钉机器人告警；
-- `excel`：JSON 流式写入 Excel，支持大数据量分页导出；
-- `helper`：`Empty`/`GetDef`/`TouchDir` 等通用工具。
-
----
-
-## 启动与部署
-
-### 准备配置
-
-```bash
-cp conf/app.yaml.example conf/app.yaml         # API 服务配置
-# 编辑 mysql / redis / log / http_port 等
+```shell
+go run ./cmd/sth_worker -config conf/app.yaml
 ```
 
-关键项：`env`(dev/test/pre/prod)、`debug`、`metrics` + `metrics_dt`、`http_port`、`mysql.*`(DSN/连接池)、`redis.*`、`log.type`(stdout/file)。
+worker 只初始化日志、可选系统心跳并等待退出，不启动 HTTP/gRPC，不连接 MySQL/Redis；在该入口接入实际任务。
 
-### 构建与运行
+## 配置与日志
 
-```bash
-go build -o bin/api    ./cmd                       # API 服务
-go build -o bin/worker ./cmd/sth_worker            # 异步任务 Worker
+配置键、单位与行为见 [配置模板](conf/app.yaml.example)。使用 `-config` 选择 YAML；当前没有环境变量覆盖配置机制。
 
-./bin/api    -config conf/app.yaml                 # 默认读取 conf/app.yaml
-./bin/worker -config conf/worker.yaml
+- `env: dev` 保留普通系统错误回显，其他环境隐藏响应细节；生产部署显式设置 `env: prod`。未配置 env 时默认 dev。
+- 系统错误日志直接使用 `zap.Error(err)` 保留原文，详见 [日志说明](pkg/logger/README.md)和[响应契约](internal/resp/README.md)。
+- 容器推荐 `log.type: stdout`；文件模式需要可写目录，按天切割且固定保留 365 天。未知日志类型使用 stdout，未知等级回退 info。
+- `metrics.enable` 启用系统状态日志，不提供 Prometheus 端点。
+- API 在启动阶段直接装配 MySQL/Redis，不提供组件配置开关。不需要时裁剪 [API 入口](cmd/api/main.go)与[存储装配](internal/bootstrap/bootstrap.go)，并移除依赖该组件的业务和路由。
+
+## 构建与检查
+
+```shell
+go build ./cmd/...
+go test ./...
+go vet ./...
 ```
 
-### 探活接口
+完整竞态和信号退出验证在具备 C 编译器的 Linux 环境执行 `go test -race ./...`；安装 Staticcheck 后执行 `staticcheck ./...`。
 
-| 路径             | 说明           |
-| -------------- | ------------ |
-| `GET /`        | 版本/描述信息      |
-| `GET /healthz` | 存活探针         |
-| `GET /ready`   | 就绪探针         |
-| `GET /reload`  | 热重载配置、日志与 DB |
+存储/入口集成测试需设置专用隔离环境变量 `D02_TEST_MYSQL_DSN`、`D02_TEST_MYSQL_ADDR`、`D02_TEST_REDIS_ADDR`，不得指向业务库。未配置时相关用例跳过。测试要求见 [项目规范](项目规范.md)。
 
----
+## 容器构建与运行
 
+[Dockerfile](Dockerfile) 使用 Go 多阶段构建，固定构建 API。后续需要构建 worker 镜像时，新增独立 Dockerfile。运行镜像为 Alpine 3.24，提供 `/bin/sh` 和基础命令，包含静态程序和时区数据，使用 UID/GID 65532；不包含配置，不额外安装或复制 CA 证书。
 
+```shell
+docker build -t serv-tpl:api .
+```
 
-## TODO
+需要其他模块代理时传 `--build-arg GOPROXY=https://goproxy.cn,direct`。构建使用已提交的 protobuf Go 文件，无需 protoc。
 
-- [v]  **`pkg/excel` 引入了本地 `pkg/helper`**，`pkg` 作为可复用层宜保持零本地依赖，可将通用函数内联或下沉
+准备宿主机 `conf/app.yaml`，MySQL/Redis 地址需能从容器访问：同一 Docker 网络使用服务名，Docker Desktop 可用 `host.docker.internal` 访问宿主机。容器内 `localhost` 指容器自身。
+
+```shell
+appConfig="$(pwd)/conf/app.yaml"
+docker run -d --name serv-tpl-api --stop-timeout 35 -p 8080:8080 --mount "type=bind,source=$appConfig,target=/app/conf/app.yaml,readonly" serv-tpl:api
+docker logs serv-tpl-api
+# 进入运行中的容器进行排查，退出 shell 后再停止服务
+docker exec -it serv-tpl-api /bin/sh
+docker stop --timeout 35 serv-tpl-api
+```
+
+开启 gRPC 时将 `grpc.address` 改为 `0.0.0.0:9090`，在运行参数增加 `-p 9090:9090`；仅发布端口不会开启服务。当前为明文 RPC，跨信任边界的 TLS/认证由实际项目配置。
+
+挂载配置需允许 UID 65532 读取；文件日志目录需允许其写入。Docker 停止等待时间应大于 `shutdown_timeout`，示例分别为 35 秒和 30 秒。
+
+## 目录与复用
+
+| 目录 | 职责 |
+| --- | --- |
+| `cmd/` | API、worker 入口装配 |
+| `routes/`、`controller/` | 路由注册、HTTP/RPC 业务处理 |
+| `api/` | protobuf 契约与生成代码 |
+| `models/dao/`、`models/dao/schema/` | 连接管理、GORM 模型及数据方法 |
+| `models/valid/` | HTTP 参数绑定与校验 |
+| `internal/` | 启动、配置、响应、中间件、请求 context |
+| `pkg/` | 日志、脱敏等通用工具 |
+
+复制为新服务后更新模块名、Go import、`.proto` 的 `go_package` 并重新生成协议；修改服务信息和连接地址，按需裁剪业务与组件。开发流程见 [AGENTS.md](AGENTS.md)，现状见 [curr.md](curr.md)，计划见 [plan.md](plan.md)。

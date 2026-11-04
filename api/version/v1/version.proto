@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package version.v1;
+
+option go_package = "serv_tpl/api/version/v1;versionv1";
+
+
+// VersionRequest 无需参数。
+message VersionRequest {}
+
+// VersionReply 对应 HTTP 根路径的 name、desc、version 字段。
+message VersionReply {
+  string name = 1;
+  string desc = 2;
+  string version = 3;
+}
+
+// VersionService 提供与 HTTP 根路径一致的服务版本信息。
+service VersionService {
+  // Version 返回配置中的服务名称、描述及版本。
+  rpc Version(VersionRequest) returns (VersionReply);
+}

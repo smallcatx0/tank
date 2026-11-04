@@ -1,28 +1,42 @@
 package routes
 
 import (
-	"gtank/controller"
-	"gtank/internal/conf"
+	controller "serv_tpl/controller"
+	v1 "serv_tpl/controller/v1"
+	"serv_tpl/internal/global"
 
 	"github.com/gin-gonic/gin"
 )
 
-// Register http路由总入口
-func Register(r *gin.Engine) {
+// RegisterHTTP 集中注册 HTTP 路由，供启动装配在监听前调用。
+func RegisterHTTP(r *gin.Engine, ready func() bool) {
 	r.GET("/", func(c *gin.Context) {
-		v := conf.AppConf.GetString("desc")
-		c.String(200, v)
+		c.JSON(200, gin.H{
+			"name":    global.AppConf.GetString("name"),
+			"desc":    global.AppConf.GetString("desc"),
+			"version": global.AppConf.GetString("ver"),
+		})
 	}) // version
-	health := controller.Health{}
+	health := controller.Health{IsReady: ready}
 	{
 		r.GET("/healthz", health.Healthz)
 		r.GET("/ready", health.Ready)
-		r.GET("/reload", health.ReloadConf)
-		r.GET("/test", health.Test)
-	}
 
-	// 注册对外接口
-	registeApi(r)
+	}
 	// 注册admin接口
 	registAdmin(r)
+	// 注册Open API接口
+
+}
+
+func registAdmin(r *gin.Engine) {
+	s := v1.Shop{}
+
+	shopRout := r.Group("/admin/shop").
+		Use(
+		// 绑定在特定路由组下的中间件
+		)
+
+	shopRout.POST("/create", s.Create)
+	shopRout.GET("/list", s.List)
 }

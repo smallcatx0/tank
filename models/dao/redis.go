@@ -2,46 +2,59 @@ package dao
 
 import (
 	"context"
-	"gtank/internal/conf"
-	"log"
-
+	"errors"
 	"github.com/redis/go-redis/v9"
-	"go.uber.org/zap"
+	"time"
 )
 
-var (
-	RedisCli    *redis.Client
-	CachePrefix string
-)
-
-/*
-初始化Redis客户端连接。
-这个函数从配置中读取Redis的相关参数，然后尝试建立连接。
-如果连接失败，函数会记录panic日志并终止程序。
-*/
-func MustInitRedis() {
-	c := conf.AppConf
-	CachePrefix = c.GetString("redis.prefix")
-	var err error
-	RedisCli, err = ConnRedis(&redis.Options{
-		Addr:       c.GetString("redis.addr"),
-		DB:         c.GetInt("redis.db"),
-		Password:   c.GetString("redis.pwd"),
-		PoolSize:   c.GetInt("redis.pool_size"),
-		MaxRetries: c.GetInt("redis.max_reties"),
-	})
-	if err != nil {
-		log.Panic("[store_redis]redis初始化失败，err=", err)
-	}
+// OpenRedis 兼容入口，初始化最多等待 15 秒。
+func OpenRedis(opt *redis.Options) (*redis.Client, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	return OpenRedisContext(ctx, opt)
 }
 
-func ConnRedis(opt *redis.Options) (*redis.Client, error) {
-	cli := redis.NewClient(opt)
-	ctx := context.Background()
-	_, err := cli.Ping(ctx).Result()
-	if err != nil {
-		zap.L().Error("[dao] redis fail, err=" + err.Error())
+// OpenRedisContext 建立独立客户端；Ping 失败立即回收，不输出连接凭据。
+func OpenRedisContext(ctx context.Context, opt *redis.Options) (*redis.Client, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if opt == nil {
+		return nil, errors.New("redis 配置为空")
+	}
+	o := *opt
+	if o.DialTimeout <= 0 {
+		o.DialTimeout = 3 * time.Second
+	}
+	if o.ReadTimeout <= 0 {
+		o.ReadTimeout = 3 * time.Second
+	}
+	if o.WriteTimeout <= 0 {
+		o.WriteTimeout = 3 * time.Second
+	}
+	if o.PoolTimeout <= 0 {
+		o.PoolTimeout = 4 * time.Second
+	}
+	if o.PoolSize <= 0 {
+		o.PoolSize = 30
+	}
+	o.ContextTimeoutEnabled = true
+	cli := redis.NewClient(&o)
+	if err := cli.Ping(ctx).Err(); err != nil {
+		_ = cli.Close()
+		return nil, errors.New("redis 初始化连接失败")
+	}
+	if err := ctx.Err(); err != nil {
+		_ = cli.Close()
 		return nil, err
 	}
 	return cli, nil
+}
+
+// CloseRedis 关闭客户端，nil 安全。
+func CloseRedis(cli *redis.Client) error {
+	if cli == nil {
+		return nil
+	}
+	return cli.Close()
 }

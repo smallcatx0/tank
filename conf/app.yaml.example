@@ -1,38 +1,52 @@
-# 基础配置
-app_name: "示例项目"
-desc: "这是示例项目"
-debug: true # gin debug开关
-metrics: true # 是否开启系统监控
-metrics_dt: 10 # 系统监控间隔
-env: dev # 可选 dev test pre prod
-http_port: 8081
+name: app
+desc: 应用程序配置
+ver: 1.0.0
+env: dev
+debug: true # global.IsDebug() 业务标记
+startup_timeout: 15s # API 存储初始化总期限；worker 不初始化存储
+shutdown_timeout: 30 # 秒，必须大于 HTTP 与已启用 gRPC 排空期限之和
 
-# JWT配置
-jwt:
-  secret: "sk" # 签名密钥，生产环境务必改为随机长字符串并与开发环境区分
+# 日志配置
+log:
+  type: stdout #可选 file stdout
+  level: DEBUG 
+  path: "./logs/log.log" # 仅 file 模式使用；按天切割，固定保留 365 天
 
 # 主数据库
 mysql:
-  debug: true
-  dsn: 'root:123123@tcp(mysql-serv:3306)/bs?charset=utf8&parseTime=True&loc=Local'
-  maxIdleConns: 10
-  maxOpenConns: 100
-  connMaxLifetime: 6
+  debug: true # 输出普通数据库操作耗时；不主动格式化 SQL，错误原文直接记录
+  dsn: 'root:123123@tcp(mysql-serv:3306)/bs?charset=utf8mb4&parseTime=True&loc=Local'
+  maxIdleConns: 10 # <=0 使用 10，实际不超过 maxOpenConns
+  maxOpenConns: 100 # <=0 使用 100
+  connMaxLifetime: 300 # 秒；<=0 使用 300
 
 #主redis
 redis: 
   addr: redis-serv:6379
   db: 0
   pwd: ''
-  pool_size: 30
-  max_reties: 3
-  idle_timeout: 1000
+  pool_size: 30 # <=0 使用 30
+  max_reties: 3 # 沿用代码键名；重试次数，0 使用客户端默认 3，-1 禁用重试
 
-# 日志配置
-log:
-  type: stdout #可选 file stdout
-  level: DEBUG 
-  path: "./logs/log.log"
-  max_size: 32
-  max_age: 30
-  max_backups: 300
+# HTTP 生命周期（时长必须带单位，端口不允许为 0）
+http:
+  port: 8080
+  debug: false
+  read_header_timeout: 5s
+  read_timeout: 15s
+  write_timeout: 15s
+  idle_timeout: 60s
+  drain_timeout: 20s
+
+
+# 可选 gRPC：默认关闭；明文回环监听，跨主机访问需自行配置可信传输边界。
+grpc:
+  enable: false
+  address: 127.0.0.1:9090 # 容器内需对外提供 RPC 时改为 0.0.0.0:9090
+  drain_timeout: 5s
+  connection_timeout: 5s # 服务端握手期限，不是业务调用期限
+
+# 心跳日志配置
+metrics:
+  enable: false # 系统状态日志心跳
+  dt: 10 # 秒；仅 enable=true 时校验，CPU 单次采样约 5s
