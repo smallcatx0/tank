@@ -33,7 +33,7 @@ func entryCommand(t *testing.T, config string) (*exec.Cmd, context.Context) {
 // TestEntryStartupPanic 验证快速失败入口，不连接外部存储，-short 下仍执行。
 func TestEntryStartupPanic(t *testing.T) {
 	for _, tc := range []struct{ name, config, want string }{
-		{"invalid-http-ignored", "shutdown_timeout: 1\nhttp:\n  port: invalid\n  drain_timeout: invalid\nmysql:\n  dsn: secret-password\n", "mysql DSN 无效"},
+		{"invalid-api-config-ignored", "shutdown_timeout: 1\nhttp:\n  port: invalid\n  drain_timeout: invalid\ngrpc:\n  enable: invalid\nlog:\n  type: file\nmysql:\n  dsn: secret-password\n", "log.path 未配置"},
 		{"invalid-common", "shutdown_timeout: 0\n", "配置 shutdown_timeout"},
 		{"invalid-config", "mysql: [secret-password\n", "配置加载失败"},
 	} {

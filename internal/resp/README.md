@@ -39,12 +39,15 @@ HTTP 状态码与 `errcode` 绑定：参数错误为 `400 + 10000`，未登录�
 | `Succ(c *gin.Context, data interface{})` | 成功响应，`errcode=0`，msg 固定"操作成功" |
 | `Fail(c *gin.Context, err error)` | 失败响应，透传 err 给 `Response` 统一处理 |
 | `Paginate(c *gin.Context, pg *Pagination, list interface{})` | 分页成功响应，`data` 为 `{"page": pg, "list": list}` |
-| `SuccJsonRaw(c *gin.Context, data string)` | data 已是 JSON 字符串时的直出（当前无调用方，注意字符串未转义） |
+| `SuccJsonRaw(c *gin.Context, data string)` | 原始 JSON 透传，HTTP 200、errcode=0；request_id 经 JSON 转义 |
 | `Response(c *gin.Context, err error)` | 底层统一出口，一般不直接调用 |
+
+`SuccJsonRaw` 将 data 原样嵌入响应，不解析、重新序列化或校验。调用方必须保证 data 是完整合法的 JSON 值（对象、数组或标量均可）；无数据时传入 `"null"`，不能传空字符串。
 
 `Response` 的错误处理规则：
 
-- `err` 为 `*Exception` / `Exception` → 按其 `HTTPCode`、`ErrCode`、`Msg`、`Data` 原样返回；
+- `err` 为 `*Exception` / `Exception`，或通过 `%w` 包装这些业务异常 → 按其 `HTTPCode`、`ErrCode`、`Msg`、`Data` 原样返回；
+- nil error 或匹配到空 `*Exception` → 返回 `500 + errcode 50000`、msg 为"服务错误"；成功请显式调用 `Succ`；
 - 其他普通 error（如 gorm 报错）→ 返回 `500 + errcode 50000`；**dev 环境**（`internal/global.Env() == "dev"`）回显真实错误信息便于调试，**生产环境** msg 统一为"服务错误"并记 error 日志。
 
 ## 二、异常体系（Exception）
@@ -61,7 +64,7 @@ type Exception struct {
 
 实现了 `Error() string`（返回 Msg），因此可直接作为 `error` 在函数间传递、被 `Fail` 识别。
 
-> 已知限制：`Exception` 目前只支持直接断言，`fmt.Errorf("...: %w", ...)` 包装后会被 `Response` 判为普通 error 而丢失业务码。需要包装时请直接返回 `*Exception`。
+`Response` 使用 `errors.As` 识别单层或多层包装，优先匹配 `*Exception`，再匹配 `Exception`；`%v` 仅格式化文本，不保留错误链。未匹配业务异常的普通错误在 dev 下仍返回完整错误原文（含包装上下文）。
 
 ### 构造器与预置错误码
 

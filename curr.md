@@ -1,18 +1,20 @@
 # 当前现状
 
-- HTTP 入口为 `cmd/api`，步骤4 仅调用 MustStartHTTP(cfg)，内部完成 Gin/路由装配、直接构造地址监听及就绪发布；包内 httpOptions 仅承载阶段期限。Shutdown 内部撤销就绪并排空请求，运行后日志最后关闭。
-- `cmd/sth_worker` 仅运行后台任务，不启动 HTTP，也不校验 HTTP 配置。
+- SuccJsonRaw 保留原始 JSON 透传，成功码为 0，request_id 经 JSON 转义；data 合法性由调用方保证。
+
+- HTTP Response/Fail 识别错误链中的 *Exception 和 Exception，保留业务状态码、错误码及响应内容；nil error 和匹配到的空 *Exception 返回通用 500 错误；dev 普通错误保留完整原始消息，非 dev 使用通用消息。
+
+- API 入口为 `cmd/api`，步骤4 顺序调用 MustStartHTTP(cfg)、MustGrpcServ(cfg)；gRPC 默认关闭，开启后提供标准 Health RPC 和 VersionService.Version 版本查询，与 HTTP 根路径返回相同的 name/desc/version。命令行客户端为 test/grpc_version，使用方式见 [gRPC 版本查询](docs/gRPC版本查询.md)。HTTP/gRPC 独立监听，均支持运行故障通知与超时排空，存储及日志最后关闭。
+- `cmd/sth_worker` 是待接入业务的空入口，仅配置、日志、可选心跳和等待退出；不初始化存储、不启动 HTTP/gRPC、不校验两种协议配置。internal/task 已删除，pkg/sth_job 仍保留且无入口引用。
 - 两个 main.go 直接顺序执行 Must 启动；失败直接 panic，不做统一恢复或跨组件回滚。初始化存储调用有超时，业务补偿归业务层。
 - 心跳开关在 bootstrap.Heartbeat 内判断，无返回值，两个入口各保留一行调用；采样错误仅记录，panic 在自身 goroutine 内恢复，不参与 WaitingExit，随进程退出结束。
-- WaitingExit 在单个函数内注册信号、等待信号或 HTTP 停止并执行退出编排，closeResource 负责逐项隔离清理异常，按入口列出的顺序关闭资源，保留日志最后关闭及总期限/二次信号强退。
-- [D02 服务启动与退出闭环](docs/服务启动与退出闭环-design.md)处于人工确认阶段；最新心跳、退出实现合并及 HTTP 装配简化未运行测试、构建或静态检查。
+- WaitingExit 显式接收 HTTP/gRPC 两个结果通道，普通 select 等待信号或服务停止，nil 通道不参与等待；Cleanup 仅负责关闭。closeResource 逐项隔离清理异常，按入口顺序关闭，保留总期限/二次信号强退。
 
 # 已知问题
 
-- main 包快速失败测试在普通模式和 -short 下均执行；API 完整入口集成由 -short 跳过，非短模式须显式提供隔离 MySQL 参数，Redis 使用测试内 miniredis。最新测试分级调整尚未执行验证。
-
-- 检查结果、存量失败与本项边界见 [D02 验收结论](docs/服务启动与退出闭环-design.md#验收结论)。
+- main 包快速失败测试在普通模式和 -short 下均执行；API 完整入口集成由 -short 跳过，非短模式须显式提供隔离 MySQL 参数，Redis 使用测试内 miniredis。
+- 全仓覆盖率尚低于规范 85% 门槛；gRPC 尚无生产业务 RPC、TLS、鉴权或反射。
 
 # 下一步
 
-- 人工确认 [D02 验收结论](docs/服务启动与退出闭环-design.md#验收结论)列出的运行契约；确认后按协议收尾归档。
+- 暂无进行中的迭代。

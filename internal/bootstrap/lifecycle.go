@@ -18,9 +18,10 @@ type Cleanup struct {
 	Stop func(context.Context) error
 }
 
-// WaitingExit 仅在启动成功后调用，等待信号或 HTTP 停止并按顺序关闭资源。
-// 无 HTTP 服务时 httpDone 传 nil；不接收启动回调、不恢复启动 panic，也不回滚启动资源。
-func WaitingExit(timeout time.Duration, httpDone <-chan error, steps ...Cleanup) int {
+// WaitingExit 仅在启动成功后调用，等待信号或服务停止并按顺序关闭资源。
+// 未启动的 HTTP/gRPC 服务传 nil 通道，对应 select 分支不参与等待。
+// 不接收启动回调、不恢复启动 panic，也不回滚启动资源。
+func WaitingExit(timeout time.Duration, httpDone, grpcDone <-chan error, steps ...Cleanup) int {
 	signals := make(chan os.Signal, 2)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
 	defer signal.Stop(signals)
@@ -30,6 +31,10 @@ func WaitingExit(timeout time.Duration, httpDone <-chan error, steps ...Cleanup)
 	case failure = <-httpDone:
 		if failure == nil {
 			failure = errors.New("HTTP 意外停止")
+		}
+	case failure = <-grpcDone:
+		if failure == nil {
+			failure = errors.New("gRPC 意外停止")
 		}
 	}
 	// 步骤1：在记录故障和关闭资源前启动独立看门狗，日志阻塞也能强退。

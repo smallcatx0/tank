@@ -9,20 +9,30 @@ import (
 )
 
 func TestWaitingExitOrder(t *testing.T) {
-	for _, mode := range []string{"http", "closed-http", "cleanup-error", "cleanup-panic", "log-panic"} {
+	for _, mode := range []string{"http", "grpc", "closed-http", "closed-grpc", "nil-http-result", "nil-grpc-result", "nil-http-channel", "cleanup-error", "cleanup-panic", "log-panic"} {
 		t.Run(mode, func(t *testing.T) {
 			httpDone := make(chan error, 1)
 			switch mode {
 			case "http":
 				httpDone <- errors.New("serve failed")
-			case "closed-http":
+			case "closed-http", "closed-grpc":
 				close(httpDone)
+			case "nil-http-result", "nil-grpc-result":
+				httpDone <- nil
 			default:
 				httpDone <- errors.New("serve failed")
 			}
 			var order []string
-			code := WaitingExit(5*time.Second, httpDone,
-				Cleanup{"http", func(ctx context.Context) error {
+			var grpcDone <-chan error
+			var httpResult <-chan error = httpDone
+			if mode == "grpc" || mode == "closed-grpc" || mode == "nil-grpc-result" {
+				grpcDone, httpResult = httpDone, make(chan error)
+			}
+			if mode == "nil-http-channel" {
+				grpcDone, httpResult = httpDone, nil
+			}
+			code := WaitingExit(5*time.Second, httpResult, grpcDone,
+				Cleanup{Name: "http", Stop: func(ctx context.Context) error {
 					require.NoError(t, ctx.Err())
 					order = append(order, "http")
 					if mode == "cleanup-error" {
@@ -33,8 +43,9 @@ func TestWaitingExitOrder(t *testing.T) {
 					}
 					return nil
 				}},
-				Cleanup{"storage", func(context.Context) error { order = append(order, "storage"); return nil }},
-				Cleanup{"log", func(context.Context) error {
+				Cleanup{Name: "grpc"},
+				Cleanup{Name: "storage", Stop: func(context.Context) error { order = append(order, "storage"); return nil }},
+				Cleanup{Name: "log", Stop: func(context.Context) error {
 					order = append(order, "log")
 					if mode == "log-panic" {
 						panic("log")

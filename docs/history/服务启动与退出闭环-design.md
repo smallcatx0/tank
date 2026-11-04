@@ -1,5 +1,7 @@
-<!-- D02 | 状态：进行中 -->
+<!-- D02 | 状态：已完成 -->
 # 服务启动与退出闭环
+
+后续扩展：[D03 API 可选 gRPC 装配](API可选gRPC装配-design.md)扩展服务故障等待契约。下文历史验收记录不代表该扩展的验收结果；任务实现已由用户删除，worker 当前仅保留配置、日志、心跳及退出入口。
 
 ## 问题
 
@@ -9,19 +11,19 @@
 
 | 位置 | 当前问题 |
 | --- | --- |
-| [HTTP 入口](../cmd/api/main.go) `main` | 没有调用路由注册，丢弃 HTTP 关闭函数；退出时先关闭日志 |
-| [启动装配](../internal/bootstrap/bootstrap.go) `MustHttp` | 使用 `gin.Engine.Run`，监听失败仅记日志；关闭回调为空 |
+| [HTTP 入口](../../cmd/api/main.go) `main` | 没有调用路由注册，丢弃 HTTP 关闭函数；退出时先关闭日志 |
+| [启动装配](../../internal/bootstrap/bootstrap.go) `MustHttp` | 使用 `gin.Engine.Run`，监听失败仅记日志；关闭回调为空 |
 | 同上 `MustInitDBs` | Redis 初始化失败未回收 MySQL，关闭错误被忽略 |
 | 同上 `Heartbeat` | recover 位于父函数，子 goroutine 无停止与等待机制 |
-| [配置加载](../internal/global/conf.go) 与 [配置模板](../conf/app.yaml.example) | HTTP 端口无默认值且模板缺项，读取为 0 后监听随机端口；缺少 HTTP 超时配置 |
-| [路由](../routes/router.go) 与 [健康控制器](../controller/healthz.go) | Ready 恒成功；未实现的 ReloadConf 返回成功，注册路由后会暴露假能力 |
-| [MySQL](../models/dao/mysql.go)、[Redis](../models/dao/redis.go) 构造函数 | 初始化未形成明确超时与失败清理契约 |
+| [配置加载](../../internal/global/conf.go) 与 [配置模板](../../conf/app.yaml.example) | HTTP 端口无默认值且模板缺项，读取为 0 后监听随机端口；缺少 HTTP 超时配置 |
+| [路由](../../routes/router.go) 与 [健康控制器](../../controller/healthz.go) | Ready 恒成功；未实现的 ReloadConf 返回成功，注册路由后会暴露假能力 |
+| [MySQL](../../models/dao/mysql.go)、[Redis](../../models/dao/redis.go) 构造函数 | 初始化未形成明确超时与失败清理契约 |
 
 ## 规则与约束
 
-- 工程与分层决策以[项目规范](../项目规范.md)第 1、2、5、6、7、8、9 节为准。
-- 登记、状态与归档按 [AGENTS.md](../AGENTS.md)执行，文档结构采用[设计文档模板](设计文档模板.md)。
-- 当前状态入口为 [curr.md](../curr.md)，计划登记为 [plan.md](../plan.md)。
+- 工程与分层决策以[项目规范](../../项目规范.md)第 1、2、5、6、7、8、9 节为准。
+- 登记、状态与归档按 [AGENTS.md](../../AGENTS.md)执行，文档结构采用[设计文档模板](../设计文档模板.md)。
+- 当前状态入口为 [curr.md](../../curr.md)，计划登记为 [plan.md](../../plan.md)。
 
 ## 方案与决策记录
 
@@ -71,10 +73,10 @@ type Cleanup struct {
     Name string
     Stop func(context.Context) error
 }
-func WaitingExit(timeout time.Duration, httpDone <-chan error, steps ...Cleanup) int
+func WaitingExit(timeout time.Duration, httpDone, grpcDone <-chan error, steps ...Cleanup) int
 ```
 
-Must 包装器不捕获 panic。WaitingExit 只接收 HTTP 结果通道与关闭步骤，不接收启动回调、不恢复启动 panic、不执行启动回滚；worker 不启动 HTTP，httpDone 传 nil。清理步骤按入口给出的顺序执行，不依赖注册栈或自动排序。
+Must 包装器不捕获 panic。WaitingExit 不接收启动回调、不恢复启动 panic、不执行启动回滚。服务结果由两个显式通道提供；多服务等待规则见 [D03](API可选gRPC装配-design.md)。清理步骤按入口给出的顺序执行，不依赖注册栈或自动排序。
 
 WaitingExit 内直接完成信号注册、事件等待、看门狗及顺序清理，删除私有 waitingExit 和 forceExit 注入参数；强退直接调用 os.Exit(1)，不增加全局替换变量。closeResource 保留单步 panic 隔离边界。测试直接调用公开入口：HTTP 事件及清理顺序在进程内验证，强退使用独立子进程。真实信号测试仅在支持的平台运行；测试专用 goroutine 观察 WaitingExit 已处于 select 等待的运行栈后再输出 READY，避免注册信号前误发信号。栈格式不匹配时明确超时失败，不依赖固定延时或生产测试钩子。
 
@@ -207,10 +209,14 @@ main 包测试按成本和依赖执行，不整体排除：
 - [x] 建立隔离验证基线，落实初始化与退出接口。
 - [x] 完成 HTTP 装配、Must 启动、心跳与健康路由，按最新边界移除装配层启动回滚。
 - [x] 完成自动化验证与全量回归，区分并报告存量失败。
-- [ ] 用户完成高风险变更人工验收。
-- [ ] 按协议收尾并归档。
+- [x] 用户完成高风险变更人工验收。
+- [x] 按协议收尾并归档。
 
 ## 验收结论
+
+收尾结论（2026-11-04）：用户明确确认 D02 可以收尾，启动命令、配置、Ready 及退出契约的人工确认完成，设计与过程记录归档至 docs/history。本次仅更新文档状态和引用，不修改功能代码，不重新运行测试；保留各阶段测试结果、未执行项及范围外问题，不将归档视为新增验收通过。后续显式 HTTP/gRPC 通道及相关验证见 [D03](API可选gRPC装配-design.md)。
+
+以下为各阶段记录；旧接口、任务实现、存量失败及“待确认/不归档”等描述表示当时状态，以本节收尾结论及后续扩展记录为准。
 
 main 测试分级（2026-11-04）：保留两个入口的快速失败子进程测试在 -short 下执行；API 完整入口集成增加 testing.Short 跳过，并保留显式隔离 MySQL 参数门槛与 miniredis。未改生产代码。按用户要求仅修改及格式化，未运行测试、构建或静态检查。
 

@@ -1,23 +1,23 @@
 package valid
 
 import (
-	"serv_tpl/internal/response"
+	"serv_tpl/internal/resp"
 
 	"github.com/gin-gonic/gin"
 )
 
 type CustomValidor interface {
-	Valid() error
+	Valid(c *gin.Context) error
 }
 
 func BindJsonAndCheck(c *gin.Context, param interface{}) error {
 	err := c.ShouldBindJSON(param)
 	if err != nil {
-		return response.ParamInValid("json解析失败", err.Error())
+		return resp.ParamInValid("json解析失败", err.Error())
 	}
 	// 自定义验证规则
 	if validor, ok := param.(CustomValidor); ok {
-		err = validor.Valid()
+		err = validor.Valid(c)
 	}
 	return err
 }
@@ -25,11 +25,11 @@ func BindJsonAndCheck(c *gin.Context, param interface{}) error {
 func BindQueryAndCheck(c *gin.Context, param interface{}) error {
 	err := c.ShouldBindQuery(param)
 	if err != nil {
-		return response.ParamInValid("json解析失败", err.Error())
+		return resp.ParamInValid("json解析失败", err.Error())
 	}
 	// 自定义验证规则
 	if validor, ok := param.(CustomValidor); ok {
-		err = validor.Valid()
+		err = validor.Valid(c)
 	}
 	return err
 }

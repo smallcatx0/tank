@@ -23,7 +23,7 @@ func Register(r *gin.Engine, ready func() bool) {
 
 	}
 	// 注册admin接口
-
+	registAdmin(r)
 	// 注册Open API接口
 
 }

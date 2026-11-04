@@ -1,4 +1,4 @@
-// Command api 顺序启动 HTTP 服务，启动失败由 panic 终止进程。
+// Command api 顺序启动 HTTP 及可选 gRPC 服务，启动失败由 panic 终止进程。
 package main
 
 import (
@@ -23,12 +23,14 @@ func main() {
 	// 步骤3：启动心跳。
 	bootstrap.Heartbeat(cfg.Heartbeat, cfg.HeartbeatInterval)
 
-	// 步骤4：装配路由并监听 HTTP。
+	// 步骤4：启动 HTTP 与可选 gRPC 服务。
 	server := bootstrap.MustStartHTTP(cfg)
+	rpc := bootstrap.MustGrpcServ(cfg)
 
 	// 步骤5：全部启动成功后才接管退出，按显式顺序关闭，日志最后。
-	os.Exit(bootstrap.WaitingExit(cfg.Shutdown, server.Done(),
+	os.Exit(bootstrap.WaitingExit(cfg.Shutdown, server.Done(), rpc.Done(),
 		bootstrap.Cleanup{Name: "http", Stop: server.Shutdown},
+		bootstrap.Cleanup{Name: "grpc", Stop: rpc.Shutdown},
 		bootstrap.Cleanup{Name: "storage", Stop: closeDB},
 		bootstrap.Cleanup{Name: "log", Stop: logSync},
 	))

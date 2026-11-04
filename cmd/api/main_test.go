@@ -34,6 +34,7 @@ func entryCommand(t *testing.T, config string) (*exec.Cmd, context.Context) {
 func TestEntryStartupPanic(t *testing.T) {
 	for _, tc := range []struct{ name, config, want string }{
 		{"invalid-http", "http:\n  port: 0\n", "配置 http.port"},
+		{"invalid-grpc", "grpc:\n  enable: true\n  address: invalid\n", "grpc.address 必须为 host:port"},
 		{"invalid-dsn", "mysql:\n  dsn: secret-password\n", "mysql DSN 无效"},
 		{"invalid-config", "mysql: [secret-password\n", "配置加载失败"},
 	} {

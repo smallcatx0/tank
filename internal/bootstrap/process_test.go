@@ -33,6 +33,7 @@ func processRun(mode string) int {
 	if mode == "error" || mode == "http-hang" || mode == "http-log-hang" {
 		httpDone <- errors.New("HTTP serve failure")
 	} else {
+		httpDone = nil // 无服务通道时仍须处理信号，覆盖 worker 入口的等待方式。
 		// 仅测试观察：确认公开入口已阻塞等待事件后才通知父进程发信号。
 		// 不在生产函数中增加就绪回调或可替换的全局变量。
 		go announceWaitingExit()
@@ -41,16 +42,16 @@ func processRun(mode string) int {
 	if mode == "second" {
 		timeout = 10 * time.Second // 父进程期限更短，防止总超时冒充二次信号通过。
 	}
-	return WaitingExit(timeout, httpDone,
-		Cleanup{"http", func(context.Context) error {
+	return WaitingExit(timeout, httpDone, nil,
+		Cleanup{Name: "http", Stop: func(context.Context) error {
 			fmt.Println("DRAINING")
 			if mode == "hang" || mode == "second" || mode == "http-hang" {
 				select {}
 			}
 			return nil
 		}},
-		Cleanup{"storage", func(context.Context) error { fmt.Println("STORAGE_CLOSED"); return nil }},
-		Cleanup{"log", func(context.Context) error {
+		Cleanup{Name: "storage", Stop: func(context.Context) error { fmt.Println("STORAGE_CLOSED"); return nil }},
+		Cleanup{Name: "log", Stop: func(context.Context) error {
 			if mode == "log-hang" || mode == "http-log-hang" {
 				fmt.Println("LOG_CLOSING")
 				select {}
@@ -77,7 +78,7 @@ func announceWaitingExit() {
 	for {
 		n := runtime.Stack(buf, true)
 		for _, stack := range strings.Split(string(buf[:n]), "\n\n") {
-			if strings.Contains(stack, " [select]:\nserv_tpl/internal/bootstrap.WaitingExit(") {
+			if strings.Contains(stack, " [select]:") && strings.Contains(stack, "/internal/bootstrap.WaitingExit(") {
 				fmt.Println("READY")
 				return
 			}

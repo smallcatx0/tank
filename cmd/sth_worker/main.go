@@ -2,11 +2,9 @@
 package main
 
 import (
-	"context"
 	"os"
 	"serv_tpl/internal/bootstrap"
 	"serv_tpl/internal/global"
-	"serv_tpl/internal/task"
 )
 
 func main() {
@@ -18,18 +16,16 @@ func main() {
 	global.MustInitAppConf(global.Param.C)
 	cfg := global.MustLoadWorkerLifecycleConfig(global.AppConf)
 
-	// 步骤2：初始化日志和存储，失败直接 panic。
+	// 步骤2：初始化日志，失败直接 panic。
 	logSync := bootstrap.MustInitLog()
-	closeDB := bootstrap.MustInitDBs(cfg.Startup)
 
-	// 步骤3：启动心跳和后台任务。
+	// 步骤3：启动可选心跳，后台任务按业务需要接入。
 	bootstrap.Heartbeat(cfg.Heartbeat, cfg.HeartbeatInterval)
-	stopTask := task.MustStartSthTask()
 
-	// 步骤4：运行后的退出按任务、存储、日志顺序执行。
-	os.Exit(bootstrap.WaitingExit(cfg.Shutdown, nil,
-		bootstrap.Cleanup{Name: "task", Stop: func(context.Context) error { stopTask(); return nil }},
-		bootstrap.Cleanup{Name: "storage", Stop: closeDB},
+	// TODO 启动worker后台任务
+
+	// 步骤4：等待退出，日志最后关闭。
+	os.Exit(bootstrap.WaitingExit(cfg.Shutdown, nil, nil,
 		bootstrap.Cleanup{Name: "log", Stop: logSync},
 	))
 }

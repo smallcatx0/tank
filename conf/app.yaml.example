@@ -42,7 +42,15 @@ http:
   idle_timeout: 60s
   drain_timeout: 20s
 startup_timeout: 15s
-shutdown_timeout: 30 # 秒，必须大于 HTTP 排空期限
+shutdown_timeout: 30 # 秒，必须大于 HTTP 与已启用 gRPC 排空期限之和
+
+
+# 可选 gRPC：默认关闭；明文回环监听，跨主机访问需自行配置可信传输边界。
+grpc:
+  enable: false
+  address: 127.0.0.1:9090
+  drain_timeout: 5s
+  connection_timeout: 5s
 metrics:
   enable: false
   dt: 10 # 秒
