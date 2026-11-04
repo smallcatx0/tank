@@ -63,7 +63,7 @@ func MustInitAppConf(filepath string) {
 
 	err := AppConf.ReadInConfig()
 	if err != nil {
-		panic(err)
+		panic("配置加载失败")
 	}
 	// TODO: 兼容 env 环境变量
 }

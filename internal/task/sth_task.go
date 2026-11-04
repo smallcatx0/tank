@@ -11,6 +11,15 @@ import (
 	"gorm.io/gorm"
 )
 
+// MustStartSthTask 启动示例任务，失败直接 panic，不承担业务补偿。
+func MustStartSthTask() func() {
+	stop := StartSthTask()
+	if stop == nil {
+		panic("示例任务启动失败")
+	}
+	return stop
+}
+
 // 开始跑起来这个任务
 func StartSthTask() func() {
 	job, err := sthjob.NewDbJob(

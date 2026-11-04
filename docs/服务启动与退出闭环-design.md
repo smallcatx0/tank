@@ -29,7 +29,7 @@
 
 本项进入代码实施与隔离验收阶段，任务可靠性改造保持在范围之外。
 
-实施范围：HTTP 装配、启动失败回滚、服务失败传播、信号与退出编排、心跳生命周期、最小健康语义、必要配置和测试。保持现有 Gin/GORM/Redis/zap/Viper 选型，不引入生命周期框架或新第三方依赖。
+实施范围：HTTP 装配、启动快速失败、服务失败传播、信号与退出编排、心跳生命周期、最小健康语义、必要配置和测试。保持现有 Gin/GORM/Redis/zap/Viper 选型，不引入生命周期框架或新第三方依赖。
 
 边界：
 
@@ -41,69 +41,57 @@
 
 ### 2. 入口与依赖装配
 
-将 `cmd/main.go` 移至 `cmd/api/main.go`，统一每个可执行文件一个子目录。用户启动命令随之变为 `go run ./cmd/api -config conf/app.yaml`；worker 命令不变。入口只调用装配和运行逻辑，业务目录不迁移。
-
-启动顺序：
+两个 main.go 采用直线式 Must 启动，不使用 run/start 回调、Runtime/Lifecycle 对象或入口 recover/defer 清理。业务补偿由业务层负责。
 
 ```text
-注册信号监听（覆盖初始化阶段）
-→ 读取并校验配置
-→ MustInitLog 装载唯一全局日志，立即登记清理
-→ 初始化 MySQL、Redis（失败回滚），成功后发布全局连接
-→ 启动可选心跳并登记关闭
-→ 创建 Gin、注册 Recovery 与路由
-→ 同步 net.Listen 成功
-→ 启动 Serve，发布就绪状态
-→ 等待信号或服务致命错误
+解析启动参数 → MustInitAppConf → MustLoad 配置校验
+→ MustInitLog → MustInitDBs（有总初始化期限）
+→ 仅 metrics.enable=true 时启动可选 Heartbeat
+→ API：MustStartHTTP(cfg)（内部装配 Gin/Recovery/路由、监听并发布就绪）
+  worker：MustStartSthTask，不启动 HTTP
+→ WaitingExit（此时才注册信号监听）→ 按结果 os.Exit
 ```
 
-`routes.Register` 由 cmd 调用，bootstrap 不反向依赖 routes/controller。Gin mode 在创建 engine 前设置。路由和中间件必须全部注册完再启动 Serve，禁止启动后修改路由。
+初始化失败直接 panic，由 Go 运行时非零退出；已成功的其他组件不做统一回收，不保证此阶段执行日志 Sync/Close。初始化期间收到退出信号按系统默认行为处理，运行期退出看门狗尚未启动。配置读取和日志创建是本地同步操作；MySQL/Redis 连接使用 startup_timeout 和驱动网络超时，不能用启动 panic 代替超时。
 
-保留规范要求的 `MustInitLog` 装载入口；底层工厂继续返回 error。后续初始化优先返回 error。入口运行边界捕获遗留 Must 类初始化 panic，写安全上下文与堆栈并进入同一清理路径，最终非零退出。已创建资源立即登记清理，不能等到所有初始化成功才登记。
+按用户要求，MustStartHTTP 统一负责本服务 HTTP 装配，直接引用 routes 和 internal/httpmd；main 不再操作 Gin、路由或就绪状态。此处替代此前 bootstrap 不引用业务路由的决策，也是项目规范中 httpmd 仅由 cmd/routes 装配规则的本次明确例外；依赖保持 cmd → bootstrap → routes/controller/httpmd，不允许业务层反向引用 bootstrap。所有路由在 Serve 前装配。全局日志由 MustInitLog 唯一装载；配置加载、存储连接和监听错误使用安全 panic 消息，不输出完整配置、DSN 或密码。
 
-配置/日志装载前的故障使用 `logger.L()` 的兜底实例输出安全诊断。不得将未经筛选的 panic 值、DSN 或配置全文带入日志。
+MustStartHTTP 直接执行 net.Listen，失败沿用安全 panic；删除仅串联监听与启动的 StartHTTP。私有 serveHTTP 保留 HTTP Server、请求 context、Serve goroutine 及故障通知职责；Shutdown 保留就绪撤销与排空职责。测试的端口冲突走 MustStartHTTP，底层排空/取消/故障场景直接向 serveHTTP 提供 listener。
 
-### 3. 生命周期 API
+HTTP 阶段期限采用私有 httpOptions，仅在 bootstrap 包内传递；删除原 HTTPOptions.Address，监听地址直接在 MustStartHTTP 中由 cfg.Port 构造。测试使用同一私有类型，listener 仍由各用例显式创建，不改变监听、超时或退出行为。
+
+### 3. 启动与运行后退出 API
 
 ```go
-// Cleanup 表示一个有名称、可报告失败的清理步骤。
+func MustInitDBs(timeout time.Duration) func(context.Context) error
+func Heartbeat(enabled bool, interval time.Duration)
+func MustStartHTTP(cfg global.LifecycleConfig) *HTTPService
+
 type Cleanup struct {
     Name string
     Stop func(context.Context) error
 }
-
-// HTTPService 持有 server/listener 及 Serve 完成结果。
-// StartHTTP 同步监听；失败时不留下后台 goroutine。
-func StartHTTP(handler http.Handler, opts HTTPOptions) (*HTTPService, error)
-func (s *HTTPService) Done() <-chan error
-func (s *HTTPService) Shutdown(ctx context.Context) error
-
-// StartHeartbeat 返回可取消且可等待的关闭函数；关闭时不再启动新采样。
-func StartHeartbeat(opts HeartbeatOptions) (func(context.Context) error, error)
+func WaitingExit(timeout time.Duration, httpDone <-chan error, steps ...Cleanup) int
 ```
 
-替换无实际关闭能力的 `MustHttp`，不为其保留空壳兼容函数。运行编排只监听有限的服务结果与信号，使用标准库 context/channel/等待机制即可；不为固定数量的 goroutine 新增 errgroup 依赖。自建 goroutine 均在自身边界 recover，记录组件名和堆栈，致命异常反馈主流程，禁止恢复后静默失去服务。
+Must 包装器不捕获 panic。WaitingExit 只接收 HTTP 结果通道与关闭步骤，不接收启动回调、不恢复启动 panic、不执行启动回滚；worker 不启动 HTTP，httpDone 传 nil。清理步骤按入口给出的顺序执行，不依赖注册栈或自动排序。
 
-### 4. HTTP 生命周期与退出码
+WaitingExit 内直接完成信号注册、事件等待、看门狗及顺序清理，删除私有 waitingExit 和 forceExit 注入参数；强退直接调用 os.Exit(1)，不增加全局替换变量。closeResource 保留单步 panic 隔离边界。测试直接调用公开入口：HTTP 事件及清理顺序在进程内验证，强退使用独立子进程。真实信号测试仅在支持的平台运行；测试专用 goroutine 观察 WaitingExit 已处于 select 等待的运行栈后再输出 READY，避免注册信号前误发信号。栈格式不匹配时明确超时失败，不依赖固定延时或生产测试钩子。
 
-- 用 `http.Server` 持有 handler 与显式超时，先同步 `net.Listen`，再异步 `Serve`。测试可注入 `127.0.0.1:0` listener；业务配置禁止端口 0。
-- 监听失败立即返回；Serve 异常通过容量为 1 的结果通道传回运行编排。只有已进入关闭流程后的 `http.ErrServerClosed` 才视为正常，不掩盖意外终止。
-- signal、Serve 错误、初始化失败统一触发一次清理。重复触发不重复 Close；组件 Shutdown 支持幂等。
-- 首个退出信号先置不就绪，再调用 Shutdown 停接入并等待活跃请求；请求 context 不直接绑定首个信号即取消的进程 context，否则无法排空正常请求。
-- 正常路径：HTTP 排空 → 停止并等待心跳 → 关闭 Redis → 关闭 MySQL → 日志 Sync/Close。worker 适配路径在存储关闭前调用现有任务停止函数，明确其失败风险。
-- Shutdown 的排空子期限到达时调用 `Server.Close` 强制断开连接，并取消仍在运行请求的服务级 context；已记录失败，不能返回退出码 0。非合作 handler 不能靠关闭 socket 保证结束，最终由进程总期限兜底。
-- 各清理步骤捕获 panic、记录失败并尽量继续后续清理；普通 error 同样使退出失败。主入口负责最终 `os.Exit`。
-- 日志清理同样受总期限约束；看门狗不能先执行可能阻塞的 Sync 再强退。
-- 首次退出信号后，独立看门狗在总期限到达或收到第二次退出信号时强退 1。正常清理成功时取消看门狗并注销信号订阅。
-- 退出码：帮助/正常运行后完成清理为 0；配置、初始化、监听、运行致命错误、清理错误/panic、超时或二次信号为 1。
+### 4. 运行后优雅退出与退出码
 
-### 5. 初始化回滚与显式超时
+- 首个信号或 HTTP Serve 结果触发退出；心跳不接入退出链路；开始清理前启动总期限 context 和独立看门狗。第二个信号或期限到达强退 1，不等待日志写入或 Sync。
+- API 首步调用 HTTPService.Shutdown，内部先撤销 Ready，再停接入并排空请求；请求 context 不绑定首个信号，排空期限到达时取消请求并强制断开。
+- API 关闭顺序为 HTTP → Redis/MySQL → 日志。worker 为任务 → Redis/MySQL → 日志。存储内部仍先关闭 Redis 再关闭 MySQL。
+- 每个关闭步骤单独隔离 panic/error，尽量继续后续步骤；任何关闭失败均返回 1。运行故障在日志关闭前记录。HTTP Shutdown 会返回 Serve 故障，避免信号与故障并发时误报成功。
+- 帮助及运行后正常清理退出 0；运行故障、关闭失败、超时或二次信号退出 1。启动配置/连接/监听失败由未捕获 panic 非零退出，不再承诺启动失败码固定为 1。
+- worker 的锁/ACK/幂等/Close 已知问题保持原范围边界，不将本项测试结果视为任务可靠性通过。
 
-基础设施在局部变量中完成初始化，全部成功后再发布到 `global`；清理闭包捕获局部实例而非重新读取可变全局。Redis 构造或 Ping 失败必须关闭本次客户端，并回滚先前 MySQL；MySQL 任何取得池后的失败均关闭池。
+### 5. 初始化超时与责任边界
 
-DAO 增加 context 接入，由 bootstrap 传入初始化期限；显式设置驱动 dial/read/write timeout 和 Redis dial/read/write/pool timeout。MySQL 初始化中的版本探测和自动 Ping 也必须落在有限网络等待内，不能只给最后的 PingContext 加期限；实施时通过已有驱动配置或显式构造 sql.DB 控制整条路径。不得用一个超时返回但后台持续建连的 goroutine 冒充取消。
+MustInitDBs 为 MySQL/Redis 整条构造链设置 startup_timeout；驱动 dial/read/write 显式为 3 秒，Redis 池等待为 4 秒。成功后发布全局连接并返回运行后关闭函数。
 
-超时与信号取消返回后，禁止继续发布连接或启动 HTTP。启动错误只记录组件和安全诊断，不打印 DSN；本项不继续使用已知有缺陷的 DSN 字符串截断作为安全保证。
+移除装配层 initDBs 的跨组件失败回滚：Redis 构造失败时不主动关闭此前成功的 MySQL，进程退出回收本地资源。DAO 构造函数自身失败的局部资源释放保留，这是组件自身责任，不是统一回滚。事务、业务副作用和分布式补偿由业务层处理。
 
 ### 6. 配置契约
 
@@ -129,7 +117,7 @@ metrics:
 - `shutdown_timeout` 缺省 30 秒；显式非正值由原来的静默回退改为配置错误。`http.drain_timeout` 必须小于总退出期限，为资源回收留出预算。
 - MySQL/Redis 网络超时先在初始化 Options 中集中给出有限默认值（建议 dial/read/write 为 3 秒、Redis pool 为 4 秒），初始化总期限由 `startup_timeout` 控制；不增加多组重复配置键。
 - stdout 不要求 `log.path`；file 才校验路径并创建目录。HTTP 只读取 `http.debug`，模板注释明确其与顶层 debug 的关系，避免误用。
-- 心跳间隔只在开启时校验为正；默认关闭。现有 SysStatInfo 采样阻塞约 5 秒，关闭必须等待当前采样或明确超时失败，不能返回成功后继续写已关闭日志。
+- 心跳间隔只在开启时校验为正；默认关闭。SysStatInfo 采样阻塞约 5 秒，心跳随进程退出结束，不取消或等待采样；用户接受退出期间丢失心跳日志或产生日志写入错误。
 
 ### 7. 恢复与健康路由
 
@@ -144,7 +132,7 @@ metrics:
 | --- | --- |
 | `cmd/main.go` → `cmd/api/main.go` | 入口位置统一；完成路由/生命周期装配 |
 | `cmd/sth_worker/main.go` | 适配共享 API、失败退出与清理顺序，不改任务算法 |
-| `internal/bootstrap/bootstrap.go` | 保留日志/基础设施装配，失败回滚与错误传播 |
+| `internal/bootstrap/bootstrap.go` | 保留日志/基础设施装配，启动失败 panic 与运行后关闭 |
 | 新增 `internal/bootstrap/http.go`、`lifecycle.go`、`heartbeat.go` | 将相应已有职责拆出并补齐关闭，不增目录层级 |
 | 新增 `internal/global/lifecycle_conf.go` | 新键默认值及严格类型、范围校验；原有配置读取保持兼容 |
 | `models/dao/mysql.go`、`redis.go` | context、连接期限和失败清理 |
@@ -165,12 +153,12 @@ metrics:
 | --- | --- | --- |
 | A1 | 默认与非法配置 | 缺省端口为 8080；显式 0/越界端口、非法时长失败；stdout 缺 path 可启动，file 缺 path 失败 |
 | A2 | HTTP 装配 | 本地实际 listener 上 `/healthz` 200；响应符合现有成功结构；`/reload` 不返回重载成功；启动前路由已完整注册 |
-| A3 | 启动/运行失败 | 占用端口导致启动失败且不遗留 Serve/心跳；注入 Serve 错误/panic触发清理，进程非零退出 |
-| A4 | 初始化失败与取消 | Redis 初始化失败回收 MySQL；已分配的失败客户端被关闭；启动取消后不发布连接、不启动 HTTP；失败清理每项只执行一次 |
+| A3 | 启动/运行失败 | 占用端口直接 panic 非零退出，不进入 WaitingExit；运行期 Serve 错误/panic 触发清理 |
+| A4 | 初始化失败与超时 | 初始化超时或错误直接 panic；不执行装配层跨组件回滚；DAO 自身构造失败资源释放仍保留 |
 | A5 | 正常排空 | 用受控阻塞 handler 发起请求，再触发退出；停止新接入，在释放 handler 前不关闭存储；释放后响应完整、按序清理、退出 0 |
 | A6 | 总期限与二次信号 | handler/清理/日志 Sync 卡住时，在配置总期限加测试调度容差内退出 1；二次信号立即走强退；不能被 Sync 阻塞 |
 | A7 | 清理错误和 panic | 单步失败可观察、有组件名；可执行的后续清理仍执行；日志最后关闭；退出 1 |
-| A8 | 心跳 | 禁用时无 goroutine；启用后可停止并等待，关闭后无后续采样/日志；子 goroutine panic 被捕获并上报 |
+| A8 | 心跳 | 禁用时无 goroutine；启用后独立采样，错误仅记录；panic 在自身 goroutine 内恢复、记录堆栈并结束心跳，不触发服务退出 |
 | A9 | Recovery/Ready | handler panic 返回安全 500且后续请求仍可服务；无敏感内容；Ready 随启动/退出切换，结束前不误报就绪 |
 | A10 | 重复调用与竞态 | 重复 Shutdown/取消不 panic、不重复释放；并发就绪读取及关闭在 race 下通过 |
 | A11 | 真实进程 | Linux 下 SIGINT/SIGTERM 触发排空、二次信号强退；Windows 做可支持的中断与子进程退出码验证，不能用 Windows 结果代替 Linux SIGTERM |
@@ -192,18 +180,17 @@ metrics:
 
 当前非归档文档唯一可见已用编号为项目规范引用的 D01。用户已明确授权仅核对归档文档首行编号；核对时 `docs/history/` 未发现 Markdown 文件，未读取历史正文。因此本项使用 D02。编号一经分配不复用，后续发现外部未同步记录时先对齐登记，不能静默重排已有编号。
 
-### 12. 实施决策补充
+### 12. 最新边界决策
 
-- 两个 main 显式列出配置、日志、存储、心跳及各自的 HTTP/任务启动步骤，不再通过 Prepare/PrepareWorker 隐藏装配清单。保留 Run 外层边界，在初始化前监听信号并统一处理 panic、启动失败回滚和退出；资源创建后立即登记清理，不能延迟到 WaitingExit 才接管。删除无生产调用的 Prepare/PrepareWorker 及 prepare.go，不再保留第二套启动路径。两个 main.go 内将原匿名回调原样命名为 start，main 仍调用 bootstrap.Run(start)，步骤、登记顺序与退出机制不变。相邻 main_test.go 直接测试 start + Run；cmd 的生产代码仍只在 main.go，测试文件不承载生产装配。为入口可读性接受两处短装配代码重复，不新增生命周期 API。心跳在 HTTP 之后、存储之前关闭，监听失败也会停止心跳。
-- 用户明确 worker 不启动 HTTP 后，移除共享配置中的隐式 HTTP 校验耦合：缺失或无效的 http.* 不影响 worker，worker 的 shutdown_timeout 也不受 HTTP drain_timeout 限制。API 的 HTTP 校验保持不变。
-- 入口测试替换原 prepare_test.go：API 覆盖非法 HTTP/共享配置、配置读取 panic、已取消启动、无效 DSN；worker 覆盖缺失/非法 HTTP 不阻断共享装配、非法共享配置拒绝、取消与存储配置失败。失败路径检查退出码及已创建日志 writer 的关闭。API 隔离集成使用显式 D02_TEST_MYSQL_DSN 和 miniredis，覆盖真实健康路由、主动故障退出、端口冲突后 HTTP/存储/日志释放。worker 不运行存在已知可靠性问题的真实任务；任务成功路径仍不计入本项验收。既有生命周期测试继续覆盖正常信号、清理顺序、panic 和超时看门狗，不修改基础组件以迁就测试。
-- startup_timeout 限定存储初始化总期限；驱动网络超时显式为 3 秒，Redis 池等待为 4 秒。配置读取与日志文件创建是同步本地操作；初始化阶段收到信号同样启动进程退出看门狗。
-- MySQL 使用现有驱动 NewConnector → sql.OpenDB → PingContext，GORM 关闭重复自动 Ping 及无 context 的版本探测。本次用 MySQL 8.0.36 验证；其他数据库版本尚未验证。原有 OpenMysql/ConnMysql/OpenRedis 入口保留为有界兼容包装。
-- 初始化日志不输出原始 DSN/密码；DAO 返回安全阶段错误。GORM 参数化日志开启；ZapWriter 对可变参数长度做保护。没有更改任务业务日志策略。
-- pkg/logger 增加 SysStatInfoContext，使生产心跳采样可取消；Close 传播文件 Sync/Close 错误。stdout 为未缓冲写入，不关闭 stdout。日志故障和看门狗强退以退出码报告，强退路径不依赖日志写入完成。
-- 退出编排仍用标准库，没有新增依赖版本；go.mod 仅把已存在且本次直接使用的 MySQL driver 从 indirect 改为直接依赖。
-- 在没有 HEAD 的情况下，变更前代码保存到本机临时基线副本；没有创建提交或使用 stash。该副本与当前源码都挂载为只读，在专用容器执行同样检查。
-- 验证期间检测到外部编辑在 internal/task/sth_mq_task_test.go 增加 SkipNow 并调整循环，予以保留，未纳入本项代码改造；该用例当前计为跳过，绝不计为通过。
+用户明确启动装配不承担业务补偿。当前方案以第 2–5 节及本节为准；后文较早验收记录中的入口 recover/defer、启动看门狗、统一回滚及心跳停止/故障传播均为当轮实现，不再代表当前行为。按用户明确边界，心跳采用进程级 goroutine，不要求单独取消和等待；这是针对通用 goroutine 可停止约定的明确例外，接受日志关闭附近的心跳日志丢失或写入错误。
+
+- 删除旧 Run/start/Runtime、WatchSignals、Cleanup 函数及入口恢复闭包；Cleanup 现仅为运行后有名称的关闭步骤。
+- backgroundDone 已无生产使用方，删除该参数及监听分支，不为潜在需求保留通道。API 传 server.Done()，worker 仅为 httpDone 保留一个 nil；信号、HTTP 停止、清理异常、日志最后关闭、总期限及二次信号强退行为保持不变。此前通用后台故障测试契约不再适用，子进程运行故障用例改用 HTTP 通道。
+- 必需组件执行 Must 启动；心跳在 bootstrap.Heartbeat 内判断 enabled，两个入口各保留一行无返回值调用。未配置/false 时直接返回；已开启时仍按原配置契约校验 metrics.dt。采样错误仅记录，panic 在自身 goroutine 内恢复并记录堆栈，随后结束心跳，不影响主服务。不提供关闭函数或故障通道，不参与 WaitingExit。worker 独立校验共享配置，忽略 http.*。
+- 保留已实现的 HTTP Recovery/健康路由、初始化驱动超时、可选独立心跳、日志工厂与存储 DAO 自身失败释放。没有新增依赖版本或业务补偿框架。
+- 测试调用真实 main 子进程，验证启动 panic、敏感信息不输出、worker 忽略 HTTP 配置；API 隔离集成覆盖监听失败和正常运行后 SIGTERM 退出 0。WaitingExit 单测及子进程验证按序关闭、异常继续、总期限和二次信号强退。
+- 配置文件读取失败改为安全 panic 信息；HTTP Must 包装也不透传下游监听错误详情。未知业务 panic 不在装配层统一捕获。
+- 模型移动等原有工作区改动不纳入本项；任务可靠性算法不变，仅增加 MustStartSthTask 失败快速终止的入口包装。
 
 ## 状态勾点（关键里程碑）
 
@@ -211,12 +198,49 @@ metrics:
 - [x] 核对当前实现、协议与编号，登记最小方案和验收标准草稿。
 - [x] 用户审阅方案，确定进入代码实施。
 - [x] 建立隔离验证基线，落实初始化与退出接口。
-- [x] 完成 HTTP 装配、失败回滚、心跳与健康路由。
+- [x] 完成 HTTP 装配、Must 启动、心跳与健康路由，按最新边界移除装配层启动回滚。
 - [x] 完成自动化验证与全量回归，区分并报告存量失败。
 - [ ] 用户完成高风险变更人工验收。
 - [ ] 按协议收尾并归档。
 
 ## 验收结论
+
+退出实现合并（2026-11-04）：合并 WaitingExit/waitingExit，保留 closeResource，信号范围、清理顺序、退出码、日志最后关闭及总超时/二次信号强退逻辑不变。测试改走公开入口；增加跨平台 HTTP 触发的清理/日志卡住子进程用例，保留 Linux 正常信号及二次信号用例，补充 closeResource 错误传播断言。二次信号用例的总退出期限长于父测试期限，避免超时误报。按用户要求仅修改及格式化，未运行测试、构建或静态检查。运行栈就绪检测属于测试实现约束，尚未实测。
+
+HTTP 参数收紧（2026-11-04）：HTTPOptions 改为私有 httpOptions，删除 Address 字段及测试中的无效地址初始化；MustStartHTTP 直接构造监听地址。按用户要求仅修改及格式化，未运行测试、构建或静态检查，历史验收结果不代表本轮已验证。
+
+删除 HTTP 转发层（2026-11-04）：移除 StartHTTP，net.Listen 直接放入 MustStartHTTP；保留 serveHTTP、Shutdown 与既有退出行为。同步端口冲突、请求排空、强制取消和并发关闭测试，未新增同等转发函数。沿用用户仅修改要求，本轮只格式化，未运行测试、构建或静态检查；下文保留 StartHTTP 的记录为此前状态。
+
+HTTP 装配内聚（2026-11-04）：main 步骤4 仅保留 server := bootstrap.MustStartHTTP(cfg)。Gin 模式、Recovery、路由、配置映射及就绪发布移入 MustStartHTTP；Shutdown 内部撤销就绪，入口直接传 server.Shutdown。保留 StartHTTP 底层监听/排空实现及退出行为，worker 不启动 HTTP。补充装配测试覆盖模式、健康路由和关闭后 Ready 为 503；沿用当前仅修改、不运行测试的约束，本轮仅格式化，未运行测试、构建或静态检查。
+
+退出接口简化（2026-11-04）：核对全部 Go 调用方后，确认 backgroundDone 仅测试使用、两个生产入口均传 nil。已移除参数及分支，同步两个入口、单元测试签名与子进程 HTTP 故障用例。按用户要求，仅修改及格式化，未运行测试、构建或静态检查；历史验收结果不代表本轮变更已验证。
+
+最新心跳简化（2026-11-04）：移除 Heartbeat 返回值、关闭/等待及故障通道，两个入口不再向 WaitingExit 接入心跳。采样错误只记录，panic 在自身 goroutine 内恢复并结束心跳。移除旧心跳停止/故障传播契约测试，WaitingExit 通用后台故障用例保留并更正命名。按用户要求，仅修改和格式化，未运行测试、构建或静态检查；下文历史验证不构成本次变更通过的证据。
+
+心跳开关内聚调整：判断移入 Heartbeat，两个入口与既有测试调用签名同步更新。按用户明确要求，本轮仅修改，未运行测试、构建或静态检查。
+
+
+可选心跳补充验证（2026-11-04）：相关 cmd/bootstrap/global/routes 单测、全量 build/vet 通过；新增配置用例覆盖未设置开关或显式 false 时忽略无效采样间隔，心跳用例覆盖启动错误返回 nil 而非 panic，以及正常停止。初次检查受 Go 缓存权限限制，授权重跑通过。本轮未重跑真实存储集成、race 或覆盖率；原有专用存储集成用例未设置参数时明确跳过。
+
+最新 Must 启动边界验收（2026-11-04，Asia/Shanghai）：
+
+- 两个 main.go 已恢复直线式 Must 调用，无入口 recover/defer 清理或 run/start 回调。启动失败由未捕获 panic 非零退出；WaitingExit 只接管全部启动成功后的运行退出。初始化失败不保证日志刷新，初始化阶段不启用退出信号看门狗，这是用户确认的责任边界。
+- Windows 相关单测、真实 main 子进程失败测试、专用 MySQL 8.0.36/miniredis 存储集成与端口冲突测试通过；全量 go build ./...、go vet ./... 通过。初次构建/vet 受缓存访问权限限制，授权重跑通过。
+- Linux 隔离环境：相关包 go test -race -count=1 -timeout=60s 通过；真实 API main 启动后 /ready 成功，SIGTERM 清理退出 0；端口冲突直接 panic。WaitingExit 子进程覆盖 SIGINT/SIGTERM、后台失败、关闭卡住、日志关闭卡住、二次信号强退；启动 panic 用例明确不执行运行后关闭步骤。
+- 当前覆盖率：所测包联合 85.5%，API 90.0%、worker 0.0%、bootstrap 88.6%、global 89.5%、routes 100%。worker 仅在子进程验证启动失败，panic 子进程未计入正常覆盖率采集，也没有运行真实任务成功路径；不得据此宣称 worker 或全仓达标。原始覆盖率保留在 tmp/d02-must.out。
+- 当前代码与本轮修改前快照 tmp/d02-before-must 的隔离全量 go test -count=1 -timeout=45s ./... 均仅 internal/task 因默认 MySQL 初始化失败而失败，其余已执行包通过。本轮未重跑全量 race/staticcheck，较早记录仅作当轮证据。
+- 本轮只使用专用 gtank-d02-must-mysql 与内存 Redis；临时 Go 容器自动删除，MySQL 容器和匿名卷在测试后清理。任务算法及已有模型移动未纳入改造，D02 保留人工验收状态。
+
+启动 panic 与资源关闭职责拆分补充验收（2026-11-04，Asia/Shanghai）：两个入口均直接恢复启动 panic，删除 startup/nil 的 Cleanup 调用。新增实际入口测试用配置值的 String 方法在日志创建后触发 panic，无须外部存储；断言退出码 1、诊断及堆栈写入文件、敏感 panic 值不输出、日志最终关闭。新增 Cleanup 不吞调用方 panic 的测试，保留关闭函数 panic/error 隔离、逆序关闭及子进程超时/信号验证。Windows 相关单测、全量 build/vet 通过（缓存权限限制经授权重跑）；隔离 Linux 相关包 race 及真实子进程测试通过。隔离全量测试仍仅 internal/task 的默认 MySQL 初始化失败，与此前已确认的存量问题一致，其余已执行包通过。本轮真实存储集成明确跳过，未重测覆盖率；下文覆盖率为各自当轮记录。Linux 临时容器使用无外部网络模式并自动删除。
+
+顺序装配补充验收（2026-11-04，Asia/Shanghai）：
+
+- Windows：实际入口及 bootstrap/global/routes 测试通过，专用 MySQL 8.0.36 与 miniredis 的 API 集成实际执行；`go build ./...`、`go vet ./...` 通过。初次构建/vet 受 Go 缓存访问权限限制，授权重跑通过。
+- Linux：`go test -race -count=1 -timeout=60s -coverprofile=/out/d02-defer.out ./cmd/... ./internal/bootstrap ./internal/global ./routes` 通过。真实子进程覆盖正常 SIGINT/SIGTERM、二次信号、清理卡住、初始化卡住、日志关闭卡住、启动错误及 panic；退出码符合预期。defer 测试覆盖顺序、清理错误/panic 后继续回收；HTTP/心跳关闭测试验证后台故障不会被并发退出掩盖。
+- 当前所测包联合覆盖率 85.3%（API 75.4%、worker 43.5%、bootstrap 93.4%、global 98.7%、routes 100%）。原始文件保留在忽略目录 tmp/d02-defer.out。入口分包及全仓核心覆盖率未声明达标，worker 真实任务成功路径仍不执行。
+- 隔离全量 `go test -count=1 -timeout=45s ./...`：当前代码与本轮修改前快照均仅 internal/task 因默认 MySQL 初始化失败而失败，其余已执行包通过。快照在 tmp/d02-before-defer，用于保留当时未提交的工作区基线；没有 stash 或覆盖用户改动。当前模型文件移动属于已有外部改动，不属于本次范围。
+- 没有修改任务可靠性算法；本轮未重跑全量 race/staticcheck，其此前存量结论见下文。专用 gtank-d02-defer-mysql 容器与匿名卷在验收后清理，临时 Go 容器自动删除；默认开发存储未访问。
+- 本轮替换的是退出编排基础代码，按高风险变更保留人工确认步骤；自动化验证已完成，D02 仍不归档。
 
 自动化验收日期：2026-11-03（Asia/Shanghai）。
 

@@ -55,7 +55,7 @@ log:
   path: logs/app.log  # 仅 file 必填，不兼容 log.filename
   level: info         # debug | info | warn | error | panic | fatal
 metrics:
-  enable: true       # 开启可取消的系统采样心跳
+  enable: true       # 开启随进程运行的系统采样心跳
   dt: 10             # 秒
 ```
 
@@ -141,6 +141,6 @@ go test -race ./pkg/logger/...
 
 ## 启动与退出接入
 
-HTTP 入口：`go run ./cmd/api -config conf/app.yaml`。启动仍要求有效 MySQL/Redis 配置。启动装配首先登记日志清理，运行编排逆序关闭资源，使日志最后关闭。关闭错误影响进程退出码。
+HTTP 入口：`go run ./cmd/api -config conf/app.yaml`。启动仍要求有效 MySQL/Redis 配置。启动失败直接 panic；启动成功后由 WaitingExit 按入口列出的顺序关闭资源，日志最后关闭。关闭错误影响进程退出码。
 
-心跳使用 `SysStatInfoContext` 取消采样并等待退出；`SysStatInfo` 保留兼容入口。HTTP 排空、存储回收和日志关闭共用总退出期限，二次信号与总超时强退不等待日志 Sync。
+心跳使用 `SysStatInfo`，采样错误仅记录；panic 在心跳自身 goroutine 内恢复并记录堆栈，随后结束心跳，不影响主服务。心跳不参与 WaitingExit，随进程退出结束，允许退出期间丢失心跳日志或产生日志写入错误。`SysStatInfoContext` 仍供需要取消采样的调用方使用。HTTP 排空、存储回收和日志关闭共用总退出期限，二次信号与总超时强退不等待日志 Sync。

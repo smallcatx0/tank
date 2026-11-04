@@ -2,60 +2,49 @@ package main
 
 import (
 	"context"
+	"flag"
+	"github.com/stretchr/testify/require"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
-
-	"github.com/spf13/viper"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"serv_tpl/internal/bootstrap"
-	"serv_tpl/internal/global"
-	"serv_tpl/pkg/logger"
+	"time"
 )
 
-func TestStartWorkerConfigAndRollback(t *testing.T) {
-	for _, tc := range []struct {
-		name, config, want string
-		cancel, logCreated bool
-	}{
-		{"missing-http", "shutdown_timeout: 1\n", "context canceled", true, true},
-		{"invalid-http", "shutdown_timeout: 1\nhttp:\n  port: invalid\n  drain_timeout: invalid\n", "context canceled", true, true},
-		{"invalid-common", "shutdown_timeout: 0\n", "shutdown_timeout", true, false},
-		{"invalid-dsn", "http:\n  port: invalid\nmysql:\n  dsn: invalid\n", "mysql DSN 无效", false, true},
+func TestEntryHelper(t *testing.T) {
+	if os.Getenv("D02_ENTRY_HELPER") != "1" {
+		return
+	}
+	flag.CommandLine = flag.NewFlagSet("entry", flag.ExitOnError)
+	os.Args = []string{"entry", "-config", os.Getenv("D02_ENTRY_CONFIG")}
+	main()
+}
+func entryCommand(t *testing.T, config string) (*exec.Cmd, context.Context) {
+	t.Helper()
+	file := filepath.Join(t.TempDir(), "app.yaml")
+	require.NoError(t, os.WriteFile(file, []byte(config), 0600))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	t.Cleanup(cancel)
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestEntryHelper$")
+	cmd.Env = append(os.Environ(), "D02_ENTRY_HELPER=1", "D02_ENTRY_CONFIG="+file)
+	return cmd, ctx
+}
+func TestEntryStartupPanic(t *testing.T) {
+	for _, tc := range []struct{ name, config, want string }{
+		{"invalid-http-ignored", "shutdown_timeout: 1\nhttp:\n  port: invalid\n  drain_timeout: invalid\nmysql:\n  dsn: secret-password\n", "mysql DSN 无效"},
+		{"invalid-common", "shutdown_timeout: 0\n", "配置 shutdown_timeout"},
+		{"invalid-config", "mysql: [secret-password\n", "配置加载失败"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			old, param := global.AppConf, global.Param
-			t.Cleanup(func() {
-				global.AppConf, global.Param = old, param
-				h, err := logger.NewStdLogger("info")
-				require.NoError(t, err)
-				logger.SetGlobal(h)
-			})
-			dir := t.TempDir()
-			logPath := filepath.ToSlash(filepath.Join(dir, "worker.log"))
-			file := filepath.Join(dir, "worker.yaml")
-			require.NoError(t, os.WriteFile(file, []byte("log:\n  type: file\n  path: '"+logPath+"'\n"+tc.config), 0600))
-			global.AppConf = viper.New()
-			global.Param.C = file
-			var startErr error
-			code := bootstrap.Run(func(ctx context.Context, r *bootstrap.Runtime) error {
-				if tc.cancel {
-					canceled, cancel := context.WithCancel(ctx)
-					cancel()
-					ctx = canceled
-				}
-				startErr = start(ctx, r)
-				return startErr
-			})
-			require.Equal(t, 1, code)
-			require.ErrorContains(t, startErr, tc.want)
-			if tc.logCreated {
-				require.Error(t, logger.L().Core().Write(zapcore.Entry{Level: zapcore.InfoLevel, Message: "after-close-probe"}, nil), "退出后日志 writer 必须关闭")
-			} else {
-				_, err := os.Stat(logPath)
-				require.ErrorIs(t, err, os.ErrNotExist)
-			}
+			cmd, ctx := entryCommand(t, tc.config)
+			out, err := cmd.CombinedOutput()
+			require.NoError(t, ctx.Err(), "启动应迅速失败，不应等待退出信号")
+			var exited *exec.ExitError
+			require.ErrorAs(t, err, &exited)
+			require.NotZero(t, exited.ExitCode())
+			require.Contains(t, string(out), "panic: "+tc.want)
+			require.NotContains(t, string(out), "secret-password")
+			require.NotContains(t, string(out), "启动 panic", "不能统一恢复启动 panic")
 		})
 	}
 }

@@ -7,23 +7,55 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"os"
+	"net/http/httptest"
+	"serv_tpl/internal/global"
+
+	"github.com/gin-gonic/gin"
+
 	"sync"
 	"testing"
 	"time"
 )
 
-func httpOpts() HTTPOptions {
-	return HTTPOptions{Address: "127.0.0.1:0", ReadHeaderTimeout: time.Second, ReadTimeout: time.Second, WriteTimeout: time.Second, IdleTimeout: time.Second, DrainTimeout: time.Second}
+func httpOpts() httpOptions {
+	return httpOptions{ReadHeaderTimeout: time.Second, ReadTimeout: time.Second, WriteTimeout: time.Second, IdleTimeout: time.Second, DrainTimeout: time.Second}
+}
+
+func TestMustStartHTTPAssembly(t *testing.T) {
+	oldMode := gin.Mode()
+	t.Cleanup(func() { gin.SetMode(oldMode) })
+	for _, debug := range []bool{false, true} {
+		func() {
+			// 随机本地端口，不初始化或访问 MySQL/Redis。
+			s := MustStartHTTP(global.LifecycleConfig{Port: 0, Debug: debug, Drain: time.Second})
+			defer s.Shutdown(context.Background())
+			wantMode := gin.ReleaseMode
+			if debug {
+				wantMode = gin.DebugMode
+			}
+			require.Equal(t, wantMode, gin.Mode())
+			request := func(path string) int {
+				w := httptest.NewRecorder()
+				s.server.Handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+				return w.Code
+			}
+			require.Equal(t, http.StatusOK, request("/healthz"))
+			require.Equal(t, http.StatusOK, request("/ready"))
+			require.Equal(t, http.StatusNotFound, request("/reload"))
+			require.NoError(t, s.Shutdown(context.Background()))
+			require.Equal(t, http.StatusServiceUnavailable, request("/ready"))
+		}()
+	}
 }
 func TestHTTPListenAndDrain(t *testing.T) {
 	entered, release := make(chan struct{}), make(chan struct{})
-	s, err := StartHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	s := serveHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		close(entered)
 		<-release
 		_, _ = w.Write([]byte("finished"))
-	}), httpOpts())
-	require.NoError(t, err)
+	}), httpOpts(), ln)
 	client := &http.Client{Timeout: 3 * time.Second}
 	defer client.CloseIdleConnections()
 	body := make(chan string, 1)
@@ -59,20 +91,22 @@ func TestHTTPListenAndDrain(t *testing.T) {
 	require.NoError(t, s.Shutdown(context.Background()))
 }
 func TestHTTPConflict(t *testing.T) {
-	s, e := StartHTTP(http.NotFoundHandler(), httpOpts())
+	oldMode := gin.Mode()
+	t.Cleanup(func() { gin.SetMode(oldMode) })
+	ln, e := net.Listen("tcp", ":0")
 	require.NoError(t, e)
-	defer s.Shutdown(context.Background())
-	o := httpOpts()
-	o.Address = s.listener.Addr().String()
-	_, e = StartHTTP(http.NotFoundHandler(), o)
-	require.Error(t, e)
+	defer ln.Close()
+	require.PanicsWithValue(t, "HTTP 监听失败", func() {
+		MustStartHTTP(global.LifecycleConfig{Port: ln.Addr().(*net.TCPAddr).Port, Drain: time.Second})
+	})
 }
 func TestHTTPForcedCancel(t *testing.T) {
 	entered, finished := make(chan struct{}), make(chan struct{})
 	o := httpOpts()
 	o.DrainTimeout = 20 * time.Millisecond
-	s, e := StartHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { close(entered); <-r.Context().Done(); close(finished) }), o)
+	ln, e := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, e)
+	s := serveHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { close(entered); <-r.Context().Done(); close(finished) }), o, ln)
 	client := &http.Client{Timeout: time.Second}
 	defer client.CloseIdleConnections()
 	requestDone := make(chan struct{})
@@ -106,23 +140,13 @@ func TestHTTPServeFailure(t *testing.T) {
 		require.NoError(t, e)
 		s := serveHTTP(http.NotFoundHandler(), httpOpts(), brokenListener{ln, panics})
 		require.Error(t, <-s.Done())
-		require.NoError(t, s.Shutdown(context.Background()))
+		require.Error(t, s.Shutdown(context.Background()), "退出也须报告 Serve 故障")
 	}
 }
-func TestWatchHTTPFailure(t *testing.T) {
-	code := run(make(chan os.Signal), func(int) { t.Error("forced") }, func(ctx context.Context, r *Runtime) error {
-		ln, e := net.Listen("tcp", "127.0.0.1:0")
-		if e != nil {
-			return e
-		}
-		r.WatchHTTP(serveHTTP(http.NotFoundHandler(), httpOpts(), brokenListener{Listener: ln}))
-		return nil
-	})
-	require.Equal(t, 1, code)
-}
 func TestConcurrentShutdown(t *testing.T) {
-	s, e := StartHTTP(http.NotFoundHandler(), httpOpts())
+	ln, e := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, e)
+	s := serveHTTP(http.NotFoundHandler(), httpOpts(), ln)
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)

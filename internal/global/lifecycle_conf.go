@@ -16,6 +16,24 @@ type LifecycleConfig struct {
 	HeartbeatInterval                                       time.Duration
 }
 
+// MustLoadLifecycleConfig 校验 API 配置，配置错误直接终止启动。
+func MustLoadLifecycleConfig(c *viper.Viper) LifecycleConfig {
+	cfg, err := LoadLifecycleConfig(c)
+	if err != nil {
+		panic(err)
+	}
+	return cfg
+}
+
+// MustLoadWorkerLifecycleConfig 只校验 worker 配置，错误直接终止启动。
+func MustLoadWorkerLifecycleConfig(c *viper.Viper) LifecycleConfig {
+	cfg, err := LoadWorkerLifecycleConfig(c)
+	if err != nil {
+		panic(err)
+	}
+	return cfg
+}
+
 // LoadLifecycleConfig 校验 HTTP 服务及共享生命周期配置。
 func LoadLifecycleConfig(c *viper.Viper) (LifecycleConfig, error) {
 	return loadLifecycleConfig(c, true)

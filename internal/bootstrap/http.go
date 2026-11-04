@@ -3,19 +3,53 @@ package bootstrap
 import (
 	"context"
 	"errors"
-	"go.uber.org/zap"
+	"fmt"
+	"serv_tpl/internal/global"
+	"serv_tpl/internal/httpmd"
+	"serv_tpl/routes"
+
+	"github.com/gin-gonic/gin"
+
 	"net"
 	"net/http"
-	"serv_tpl/pkg/logger"
+
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
-// HTTPOptions 定义监听地址与各阶段期限。
-type HTTPOptions struct {
-	Address                                                                 string
+// httpOptions 定义包内 HTTP 运行与排空的各阶段期限。
+type httpOptions struct {
 	ReadHeaderTimeout, ReadTimeout, WriteTimeout, IdleTimeout, DrainTimeout time.Duration
+}
+
+// MustStartHTTP 装配本服务的中间件和路由，同步监听后发布就绪，失败直接 panic。
+func MustStartHTTP(cfg global.LifecycleConfig) *HTTPService {
+	// 步骤1：设置模式并在监听前完成全部路由装配。
+	if cfg.Debug {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
+	ready := new(atomic.Bool)
+	engine := gin.New()
+	engine.Use(httpmd.Recovery)
+
+	routes.Register(engine, ready.Load)
+
+	// 步骤2：监听成功后发布就绪，关闭时由 HTTPService 撤销。
+	opts := httpOptions{
+		ReadHeaderTimeout: cfg.ReadHeader, ReadTimeout: cfg.Read,
+		WriteTimeout: cfg.Write, IdleTimeout: cfg.Idle, DrainTimeout: cfg.Drain,
+	}
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.Port))
+	if err != nil {
+		panic("HTTP 监听失败")
+	}
+	s := serveHTTP(engine, opts, ln)
+	s.ready = ready
+	ready.Store(true)
+	return s
 }
 
 // HTTPService 持有监听器和请求生命周期，不绑定退出信号直接取消请求。
@@ -26,20 +60,15 @@ type HTTPService struct {
 	done     chan error
 	finished chan struct{}
 	stopping atomic.Bool
+	ready    *atomic.Bool // 由 MustStartHTTP 创建，与健康路由共享。
 	once     sync.Once
 	err      error
+	serveErr error // finished 关闭后可读，避免信号与 Serve 故障竞态丢失错误。
 	drain    time.Duration
 }
 
-// StartHTTP 同步监听，所有路由必须已装配；失败不遗留后台任务。
-func StartHTTP(handler http.Handler, o HTTPOptions) (*HTTPService, error) {
-	ln, err := net.Listen("tcp", o.Address)
-	if err != nil {
-		return nil, err
-	}
-	return serveHTTP(handler, o, ln), nil
-}
-func serveHTTP(handler http.Handler, o HTTPOptions, ln net.Listener) *HTTPService {
+// serveHTTP 在已创建的监听器上运行服务，管理请求生命周期与 Serve 故障通知。
+func serveHTTP(handler http.Handler, o httpOptions, ln net.Listener) *HTTPService {
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &HTTPService{listener: ln, cancel: cancel, done: make(chan error, 1), finished: make(chan struct{}), drain: o.DrainTimeout}
 	s.server = &http.Server{Handler: handler, ReadHeaderTimeout: o.ReadHeaderTimeout, ReadTimeout: o.ReadTimeout, WriteTimeout: o.WriteTimeout, IdleTimeout: o.IdleTimeout, BaseContext: func(net.Listener) context.Context { return ctx }}
@@ -51,6 +80,7 @@ func serveHTTP(handler http.Handler, o HTTPOptions, ln net.Listener) *HTTPServic
 			if panicked {
 				err = errors.New("HTTP Serve panic")
 			}
+			s.serveErr = err
 			s.done <- err
 			if panicked {
 				logPanic("http")
@@ -68,9 +98,12 @@ func serveHTTP(handler http.Handler, o HTTPOptions, ln net.Listener) *HTTPServic
 // Done 返回 Serve 的唯一结果，供运行编排监测。
 func (s *HTTPService) Done() <-chan error { return s.done }
 
-// Shutdown 幂等排空；超时取消请求并强制关闭连接。
+// Shutdown 先撤销就绪再幂等排空；超时取消请求并强制关闭连接。
 func (s *HTTPService) Shutdown(ctx context.Context) error {
 	s.once.Do(func() {
+		if s.ready != nil {
+			s.ready.Store(false)
+		}
 		s.stopping.Store(true)
 		drain, cancel := context.WithTimeout(ctx, s.drain)
 		defer cancel()
@@ -82,37 +115,10 @@ func (s *HTTPService) Shutdown(ctx context.Context) error {
 		s.cancel()
 		select {
 		case <-s.finished:
+			s.err = errors.Join(s.err, s.serveErr)
 		case <-ctx.Done():
 			s.err = errors.Join(s.err, ctx.Err())
 		}
 	})
 	return s.err
-}
-
-// WatchHTTP 监测 Serve 结果；异常退出触发进程失败。
-func (r *Runtime) WatchHTTP(s *HTTPService) {
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		defer func() {
-			if recover() != nil {
-				r.Fail()
-				logPanic("http-watch")
-			}
-		}()
-		if err := <-s.Done(); err != nil {
-			r.Fail()
-			logger.L().Error("HTTP 服务异常退出", zap.String("component", "http"), zap.Error(err))
-		}
-	}()
-	// 步骤1：HTTP 清理同时等待监测协程结束，再允许关闭日志。
-	r.Add("http", func(ctx context.Context) error {
-		err := s.Shutdown(ctx)
-		select {
-		case <-done:
-			return err
-		case <-ctx.Done():
-			return errors.Join(err, ctx.Err())
-		}
-	})
 }

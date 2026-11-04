@@ -1,68 +1,32 @@
 package bootstrap
 
 import (
-	"context"
-	"errors"
-	"serv_tpl/pkg/logger"
-	"sync"
 	"time"
+
+	"serv_tpl/pkg/logger"
 )
 
-// HeartbeatOptions 定义是否采样、间隔及致命异常通知。
-type HeartbeatOptions struct {
-	Enabled   bool
-	Interval  time.Duration
-	OnFailure func()
-}
-
-// StartHeartbeat 启动可停止、可等待的系统采样，不把采样放在请求路径。
-func StartHeartbeat(o HeartbeatOptions) (func(context.Context) error, error) {
-	return startHeartbeat(o, func(ctx context.Context) { logger.SysStatInfoContext(ctx, logger.L()) })
-}
-func startHeartbeat(o HeartbeatOptions, sample func(context.Context)) (func(context.Context) error, error) {
-	if !o.Enabled {
-		return func(context.Context) error { return nil }, nil
+// Heartbeat 按开关启动进程级状态采样，不提供关闭句柄，也不影响服务退出码。
+// 采样错误由 logger 记录；panic 在自身 goroutine 中恢复并结束心跳。
+// 心跳随进程退出结束，允许退出期间丢失日志或产生日志写入错误。
+func Heartbeat(enabled bool, interval time.Duration) {
+	if !enabled {
+		return
 	}
-	if o.Interval <= 0 {
-		return nil, errors.New("心跳间隔必须为正")
+	if interval <= 0 {
+		logger.L().Warn("心跳间隔必须为正，已跳过")
+		return
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	stop := ctx.Done()
-	done := make(chan struct{})
-	var once sync.Once
 	go func() {
-		defer close(done)
 		defer func() {
 			if recover() != nil {
-				if o.OnFailure != nil {
-					o.OnFailure()
-				}
 				logPanic("heartbeat")
 			}
 		}()
-		ticker := time.NewTicker(o.Interval)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
-		for {
-			select {
-			case <-stop:
-				return
-			case <-ticker.C:
-				select {
-				case <-stop:
-					return
-				default:
-					sample(ctx)
-				}
-			}
+		for range ticker.C {
+			logger.SysStatInfo(logger.L())
 		}
 	}()
-	return func(ctx context.Context) error {
-		once.Do(cancel)
-		select {
-		case <-done:
-			return nil
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}, nil
 }

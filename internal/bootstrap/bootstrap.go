@@ -11,7 +11,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
+
 	"serv_tpl/internal/global"
 	"serv_tpl/models/dao"
 	"serv_tpl/pkg/logger"
@@ -43,58 +43,38 @@ func MustInitLog() func(context.Context) error {
 	return func(context.Context) error { once.Do(func() { closeErr = h.Close() }); return closeErr }
 }
 
-// InitDBs 在局部完成全部初始化后发布连接；失败逆序回滚。
-func InitDBs(ctx context.Context) (func(context.Context) error, error) {
+// MustInitDBs 在总初始化期限内建立存储连接；失败直接 panic，不回收已成功的其他组件。
+// 底层 DAO 仍负责释放自身构造失败的资源，业务补偿由业务层处理。
+func MustInitDBs(timeout time.Duration) func(context.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	c := global.AppConf
-	return initDBs(ctx,
-		func(ctx context.Context) (*gorm.DB, error) {
-			return dao.OpenMysqlContext(ctx, dao.MysqlOptions{
-				DSN: c.GetString("mysql.dsn"), MaxIdleConns: c.GetInt("mysql.maxIdleConns"),
-				MaxOpenConns: c.GetInt("mysql.maxOpenConns"), ConnMaxLifetime: c.GetInt("mysql.connMaxLifetime"), Debug: c.GetBool("mysql.debug"),
-			})
-		},
-		func(ctx context.Context) (*redis.Client, error) {
-			return dao.OpenRedisContext(ctx, &redis.Options{
-				Addr: c.GetString("redis.addr"), Password: c.GetString("redis.pwd"), DB: c.GetInt("redis.db"),
-				PoolSize: c.GetInt("redis.pool_size"), MaxRetries: c.GetInt("redis.max_reties"),
-				DialTimeout: 3 * time.Second, ReadTimeout: 3 * time.Second, WriteTimeout: 3 * time.Second, PoolTimeout: 4 * time.Second,
-				ContextTimeoutEnabled: true,
-			})
-		}, dao.CloseMysql, dao.CloseRedis)
-}
-
-func initDBs(ctx context.Context, openDB func(context.Context) (*gorm.DB, error), openRedis func(context.Context) (*redis.Client, error), closeDB func(*gorm.DB) error, closeRedis func(*redis.Client) error) (stop func(context.Context) error, err error) {
-	db, err := openDB(ctx)
+	db, err := dao.OpenMysqlContext(ctx, dao.MysqlOptions{
+		DSN: c.GetString("mysql.dsn"), MaxIdleConns: c.GetInt("mysql.maxIdleConns"),
+		MaxOpenConns: c.GetInt("mysql.maxOpenConns"), ConnMaxLifetime: c.GetInt("mysql.connMaxLifetime"), Debug: c.GetBool("mysql.debug"),
+	})
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	success := false
-	defer func() {
-		if !success {
-			err = errors.Join(err, closeDB(db))
-		}
-	}()
-	r, err := openRedis(ctx)
+	r, err := dao.OpenRedisContext(ctx, &redis.Options{
+		Addr: c.GetString("redis.addr"), Password: c.GetString("redis.pwd"), DB: c.GetInt("redis.db"),
+		PoolSize: c.GetInt("redis.pool_size"), MaxRetries: c.GetInt("redis.max_reties"),
+		DialTimeout: 3 * time.Second, ReadTimeout: 3 * time.Second, WriteTimeout: 3 * time.Second, PoolTimeout: 4 * time.Second,
+		ContextTimeoutEnabled: true,
+	})
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	defer func() {
-		if !success {
-			err = errors.Join(err, closeRedis(r))
-		}
-	}()
 	if err = ctx.Err(); err != nil {
-		return nil, err
+		panic(err)
 	}
-	// 步骤1：全部成功后一次发布；清理捕获本次实例。
 	global.MysqlCli, global.RedisCli = db, r
-	success = true
 	var once sync.Once
 	var closeErr error
 	return func(context.Context) error {
-		once.Do(func() { closeErr = errors.Join(closeRedis(r), closeDB(db)) })
+		once.Do(func() { closeErr = errors.Join(dao.CloseRedis(r), dao.CloseMysql(db)) })
 		return closeErr
-	}, nil
+	}
 }
 
 func logPanic(component string) {

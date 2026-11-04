@@ -12,6 +12,22 @@ func TestLifecycleDefaults(t *testing.T) {
 	require.NoError(t, e)
 	require.Equal(t, 8080, o.Port)
 	require.False(t, o.Debug)
+	require.False(t, o.Heartbeat)
+}
+
+func TestDisabledHeartbeatIgnoresInterval(t *testing.T) {
+	for _, load := range []func(*viper.Viper) (LifecycleConfig, error){LoadLifecycleConfig, LoadWorkerLifecycleConfig} {
+		for _, explicit := range []bool{false, true} {
+			c := viper.New()
+			if explicit {
+				c.Set("metrics.enable", false)
+			}
+			c.Set("metrics.dt", "invalid")
+			cfg, err := load(c)
+			require.NoError(t, err)
+			require.False(t, cfg.Heartbeat)
+		}
+	}
 }
 
 func TestWorkerIgnoresHTTPConfig(t *testing.T) {

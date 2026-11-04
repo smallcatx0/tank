@@ -2,142 +2,49 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"net"
-	"net/http"
+	"flag"
+	"github.com/stretchr/testify/require"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/alicebob/miniredis/v2"
-	"github.com/spf13/viper"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"serv_tpl/internal/bootstrap"
-	"serv_tpl/internal/global"
-	"serv_tpl/pkg/logger"
 )
 
-// 配置和全局实例只在当前测试进程使用；这些测试不能并行运行。
-func entryConfig(t *testing.T, config string) string {
-	t.Helper()
-	old, param := global.AppConf, global.Param
-	db, redis := global.MysqlCli, global.RedisCli
-	t.Cleanup(func() {
-		global.AppConf, global.Param = old, param
-		global.MysqlCli, global.RedisCli = db, redis
-		h, err := logger.NewStdLogger("info")
-		require.NoError(t, err)
-		logger.SetGlobal(h)
-	})
-	dir := t.TempDir()
-	logPath := filepath.ToSlash(filepath.Join(dir, "app.log"))
-	file := filepath.Join(dir, "app.yaml")
-	require.NoError(t, os.WriteFile(file, []byte("log:\n  type: file\n  path: '"+logPath+"'\n"+config), 0600))
-	global.AppConf = viper.New()
-	global.Param.C = file
-	return logPath
+func TestEntryHelper(t *testing.T) {
+	if os.Getenv("D02_ENTRY_HELPER") != "1" {
+		return
+	}
+	flag.CommandLine = flag.NewFlagSet("entry", flag.ExitOnError)
+	os.Args = []string{"entry", "-config", os.Getenv("D02_ENTRY_CONFIG")}
+	main()
 }
-
-func TestStartFailures(t *testing.T) {
-	for _, tc := range []struct {
-		name, config, want string
-		cancel, logCreated bool
-	}{
-		{"invalid-http", "http:\n  port: 0\n", "http.port", false, false},
-		{"invalid-common", "startup_timeout: invalid\n", "startup_timeout", false, false},
-		{"canceled", "", "context canceled", true, true},
-		{"invalid-dsn", "mysql:\n  dsn: invalid\n", "mysql DSN 无效", false, true},
+func entryCommand(t *testing.T, config string) (*exec.Cmd, context.Context) {
+	t.Helper()
+	file := filepath.Join(t.TempDir(), "app.yaml")
+	require.NoError(t, os.WriteFile(file, []byte(config), 0600))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	t.Cleanup(cancel)
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestEntryHelper$")
+	cmd.Env = append(os.Environ(), "D02_ENTRY_HELPER=1", "D02_ENTRY_CONFIG="+file)
+	return cmd, ctx
+}
+func TestEntryStartupPanic(t *testing.T) {
+	for _, tc := range []struct{ name, config, want string }{
+		{"invalid-http", "http:\n  port: 0\n", "配置 http.port"},
+		{"invalid-dsn", "mysql:\n  dsn: secret-password\n", "mysql DSN 无效"},
+		{"invalid-config", "mysql: [secret-password\n", "配置加载失败"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			logPath := entryConfig(t, tc.config)
-			var startErr error
-			code := bootstrap.Run(func(ctx context.Context, r *bootstrap.Runtime) error {
-				if tc.cancel {
-					canceled, cancel := context.WithCancel(ctx)
-					cancel()
-					ctx = canceled
-				}
-				startErr = start(ctx, r)
-				return startErr
-			})
-			require.Equal(t, 1, code)
-			require.ErrorContains(t, startErr, tc.want)
-			if tc.logCreated {
-				// 切割 writer 没有 Sync 方法；直接写入已关闭的 writer 应失败。
-				require.Error(t, logger.L().Core().Write(zapcore.Entry{Level: zapcore.InfoLevel, Message: "after-close-probe"}, nil), "退出后日志 writer 必须关闭")
-			} else {
-				_, err := os.Stat(logPath)
-				require.ErrorIs(t, err, os.ErrNotExist)
-			}
-		})
-	}
-}
-
-func TestStartConfigPanic(t *testing.T) {
-	entryConfig(t, "")
-	global.Param.C = filepath.Join(t.TempDir(), "missing.yaml")
-	require.Equal(t, 1, bootstrap.Run(start))
-}
-
-// TestStartIsolated 只连接显式指定的专用 MySQL；Redis 使用进程内隔离实例。
-func TestStartIsolated(t *testing.T) {
-	dsn := os.Getenv("D02_TEST_MYSQL_DSN")
-	if dsn == "" {
-		t.Skip("需要专用隔离 MySQL 的 D02_TEST_MYSQL_DSN")
-	}
-	for _, occupied := range []bool{false, true} {
-		t.Run(fmt.Sprintf("port-occupied=%t", occupied), func(t *testing.T) {
-			redis := miniredis.RunT(t)
-			listener, err := net.Listen("tcp", ":0")
-			require.NoError(t, err)
-			defer listener.Close()
-			port := listener.Addr().(*net.TCPAddr).Port
-			if !occupied {
-				require.NoError(t, listener.Close())
-			}
-			entryConfig(t, fmt.Sprintf("mysql:\n  dsn: '%s'\nredis:\n  addr: '%s'\nhttp:\n  port: %d\nmetrics:\n  enable: true\n  dt: 1\n", dsn, redis.Addr(), port))
-			var startErr, requestErr error
-			var status int
-			code := bootstrap.Run(func(ctx context.Context, r *bootstrap.Runtime) error {
-				startErr = start(ctx, r)
-				if startErr != nil {
-					return startErr
-				}
-				logger.L().Info("entry-started")
-				client := &http.Client{Timeout: time.Second}
-				resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/healthz", port))
-				requestErr = err
-				if err == nil {
-					status = resp.StatusCode
-					_ = resp.Body.Close()
-				}
-				client.CloseIdleConnections()
-				// 主动故障退出验证真实装配资源的回收；正常信号退出由 lifecycle 测试覆盖。
-				r.Fail()
-				return nil
-			})
-			require.Equal(t, 1, code)
-			if occupied {
-				require.Error(t, startErr)
-			} else {
-				require.NoError(t, startErr)
-				require.NoError(t, requestErr)
-				require.Equal(t, http.StatusOK, status)
-				probe, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-				require.NoError(t, err, "退出后 HTTP 监听必须释放")
-				_ = probe.Close()
-			}
-			require.NotNil(t, global.MysqlCli)
-			require.NotNil(t, global.RedisCli)
-			pool, err := global.MysqlCli.DB()
-			require.NoError(t, err)
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
-			require.Error(t, pool.PingContext(ctx), "退出后 MySQL 必须关闭")
-			require.Error(t, global.RedisCli.Ping(ctx).Err(), "退出后 Redis 必须关闭")
-			require.Error(t, logger.L().Core().Write(zapcore.Entry{Level: zapcore.InfoLevel, Message: "after-close-probe"}, nil), "退出后日志 writer 必须关闭")
+			cmd, ctx := entryCommand(t, tc.config)
+			out, err := cmd.CombinedOutput()
+			require.NoError(t, ctx.Err(), "启动应迅速失败，不应等待退出信号")
+			var exited *exec.ExitError
+			require.ErrorAs(t, err, &exited)
+			require.NotZero(t, exited.ExitCode())
+			require.Contains(t, string(out), "panic: "+tc.want)
+			require.NotContains(t, string(out), "secret-password")
+			require.NotContains(t, string(out), "启动 panic", "不能统一恢复启动 panic")
 		})
 	}
 }
