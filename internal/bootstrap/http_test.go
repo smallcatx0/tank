@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -36,7 +37,16 @@ func TestMustStartHTTPAssembly(t *testing.T) {
 			require.Equal(t, wantMode, gin.Mode())
 			request := func(path string) int {
 				w := httptest.NewRecorder()
-				s.server.Handler.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+				req := httptest.NewRequest(http.MethodGet, path, nil)
+				req.Header.Set("request_id", "assembly-request")
+				s.server.Handler.ServeHTTP(w, req)
+				if path != "/reload" {
+					var body struct {
+						RequestID string `json:"request_id"`
+					}
+					require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+					require.Equal(t, "assembly-request", body.RequestID)
+				}
 				return w.Code
 			}
 			require.Equal(t, http.StatusOK, request("/healthz"))

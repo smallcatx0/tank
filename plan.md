@@ -1,4 +1,5 @@
 # 计划与想法
+- [x] [D18 HTTP 请求标识透传](docs/history/HTTP请求标识透传-design.md)（中间件、响应及装配测试通过）。
 - [x] [D17 店铺表模型定义](docs/history/店铺表模型定义-design.md)（模型编译、相关测试和静态检查通过）。
 - [x] [D16 店铺接口演示替换](docs/history/店铺接口演示替换-design.md)（示例及测试替换，回归、静态检查与构建通过）。
 - [x] [D15 HTTP 注册入口命名统一](docs/history/HTTP注册入口命名统一-design.md)（相关回归、静态检查与构建通过）。

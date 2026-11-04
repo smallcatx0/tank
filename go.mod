@@ -76,6 +76,7 @@ require (
 	github.com/adjust/rmq/v5 v5.2.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/redis/go-redis/v9 v9.23.0
+	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/viper v1.21.0
 	go.uber.org/multierr v1.10.0 // indirect
 	gorm.io/driver/mysql v1.6.0

@@ -123,9 +123,9 @@ func (h Demo) List(c *gin.Context) {
 
 ## 五、request_id 与链路追踪
 
-- key 为常量 `RequestIDKey = "x-b3-traceid"`；`internal/httpmd` 中定义了同名常量，改键名须同步两处。
+- 上下文 key 为本包常量 `RequestIDKey = "x-b3-traceid"`，`internal/httpmd.RequestIDKey` 引用该常量。
 - 响应体中的 `request_id` 取自 `c.GetString(RequestIDKey)`。
-- **现状**：仓库尚未提供写入该 key 的中间件（`internal/httpmd/trace.go` 为空文件），因此该字段当前恒为空串，需先补齐 Trace 中间件才会生效。
+- HTTP 启动装配在 Recovery 前注册 Trace 中间件，从 `request_id` 请求头读取值并写入 Gin 上下文；请求头名称大小写不敏感。缺失时为空字符串，不自动生成 ID。系统错误及 panic 日志携带同一 `request_id` 字段。
 
 ## 六、注意事项
 

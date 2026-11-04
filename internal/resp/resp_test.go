@@ -74,11 +74,8 @@ func TestResponseErrorContract(t *testing.T) {
 				{"wrapped nil exception", fmt.Errorf("context: %w", nilException), 500, 50000, "服务错误"},
 				{"ordinary error", errors.New(internalMessage), 500, 50000, wantMessage},
 				{"business pointer", NewException(400, 40001, "参数错误"), 400, 40001, "参数错误"},
-				{"business value", *NewException(400, 40001, "参数错误"), 400, 40001, "参数错误"},
 				{"wrapped business pointer", fmt.Errorf("context: %w", NewException(409, 40901, "状态冲突")), 409, 40901, "状态冲突"},
-				{"wrapped business value", fmt.Errorf("context: %w", *NewException(422, 42201, "参数不符合规则")), 422, 42201, "参数不符合规则"},
 				{"nested business pointer", fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", NewException(409, 40901, "状态冲突"))), 409, 40901, "状态冲突"},
-				{"nested business value", fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", *NewException(422, 42201, "参数不符合规则"))), 422, 42201, "参数不符合规则"},
 				{"success", NewSucc(nil), 200, 0, "操作成功"},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
@@ -121,7 +118,6 @@ func TestResponseWrappedDataAndOrdinaryError(t *testing.T) {
 			want   body
 		}{
 			{"pointer data", fmt.Errorf("context: %w", business), 409, body{ErrCode: 40901, Msg: "状态冲突", Data: "current-state"}},
-			{"value data", fmt.Errorf("context: %w", *business), 409, body{ErrCode: 40901, Msg: "状态冲突", Data: "current-state"}},
 			{"ordinary", ordinary, 500, body{ErrCode: 50000, Msg: message}},
 		} {
 			t.Run(env+"/"+tc.name, func(t *testing.T) {

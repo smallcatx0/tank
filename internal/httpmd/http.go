@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"serv_tpl/internal/global"
+	"serv_tpl/internal/resp"
 	"serv_tpl/pkg/logger"
 
 	"github.com/gin-gonic/gin"
@@ -12,7 +13,7 @@ import (
 )
 
 // RequestIDKey 唯一请求id
-const RequestIDKey = "x-b3-traceid"
+const RequestIDKey = resp.RequestIDKey
 
 // 日志记录白名单
 var LogWrite = map[string]bool{

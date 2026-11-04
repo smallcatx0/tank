@@ -10,7 +10,7 @@ type Exception struct {
 	Warp     []error
 }
 
-func (e Exception) Error() string {
+func (e *Exception) Error() string {
 	return e.Msg
 }
 

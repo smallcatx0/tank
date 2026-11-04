@@ -11,7 +11,7 @@ import (
 func Recovery(c *gin.Context) {
 	defer func() {
 		if recover() != nil {
-			logger.L().Error("HTTP 请求 panic", zap.String("component", "http"), zap.String("route", c.FullPath()), zap.Stack("stack"))
+			logger.L().Error("HTTP 请求 panic", zap.String("component", "http"), zap.String("route", c.FullPath()), zap.String("request_id", c.GetString(RequestIDKey)), zap.Stack("stack"))
 			if !c.Writer.Written() {
 				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"errcode": 50000, "msg": "服务错误", "data": nil, "request_id": c.GetString(RequestIDKey)})
 			} else {
