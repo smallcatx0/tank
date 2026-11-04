@@ -5,9 +5,7 @@ ENV GOPROXY=${GOPROXY}
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-ARG SERVICE=api
-RUN case "$SERVICE" in api|sth_worker) ;; *) echo "SERVICE must be api or sth_worker" >&2; exit 1 ;; esac \
-    && CGO_ENABLED=0 go build -trimpath -o /out/service ./cmd/${SERVICE} \
+RUN CGO_ENABLED=0 go build -trimpath -o /out/service ./cmd/api \
     && mkdir -p /runtime/conf /runtime/logs
 
 FROM alpine:3.24

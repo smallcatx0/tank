@@ -59,11 +59,10 @@ go vet ./...
 
 ## 容器构建与运行
 
-[Dockerfile](Dockerfile) 使用 Go 多阶段构建，默认构建 API，`SERVICE` 可选择 worker。运行镜像为 Alpine 3.24，提供 `/bin/sh` 和基础命令，包含静态程序和时区数据，使用 UID/GID 65532；不包含配置，不额外安装或复制 CA 证书。
+[Dockerfile](Dockerfile) 使用 Go 多阶段构建，固定构建 API。后续需要构建 worker 镜像时，新增独立 Dockerfile。运行镜像为 Alpine 3.24，提供 `/bin/sh` 和基础命令，包含静态程序和时区数据，使用 UID/GID 65532；不包含配置，不额外安装或复制 CA 证书。
 
 ```shell
 docker build -t serv-tpl:api .
-docker build --build-arg SERVICE=sth_worker -t serv-tpl:worker .
 ```
 
 需要其他模块代理时传 `--build-arg GOPROXY=https://goproxy.cn,direct`。构建使用已提交的 protobuf Go 文件，无需 protoc。
@@ -80,12 +79,6 @@ docker stop --timeout 35 serv-tpl-api
 ```
 
 开启 gRPC 时将 `grpc.address` 改为 `0.0.0.0:9090`，在运行参数增加 `-p 9090:9090`；仅发布端口不会开启服务。当前为明文 RPC，跨信任边界的 TLS/认证由实际项目配置。
-
-```shell
-appConfig="$(pwd)/conf/app.yaml"
-docker run -d --name serv-tpl-worker --stop-timeout 35 --mount "type=bind,source=$appConfig,target=/app/conf/app.yaml,readonly" serv-tpl:worker
-docker stop --timeout 35 serv-tpl-worker
-```
 
 挂载配置需允许 UID 65532 读取；文件日志目录需允许其写入。Docker 停止等待时间应大于 `shutdown_timeout`，示例分别为 35 秒和 30 秒。
 
