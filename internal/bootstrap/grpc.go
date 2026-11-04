@@ -9,10 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	versionv1 "serv_tpl/api/version/v1"
-	"serv_tpl/controller/rpc"
 	"serv_tpl/internal/global"
 	"serv_tpl/pkg/logger"
+	"serv_tpl/routes"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -40,7 +39,7 @@ func MustGrpcServ(cfg global.LifecycleConfig) *GRPCService {
 	if !cfg.GRPC.Enabled {
 		return nil
 	}
-	// 步骤1：在监听之前装配拦截器与服务；业务 RPC 的 Register 调用放在此处。
+	// 步骤1：在监听前装配拦截器、生命周期健康服务和业务注册入口。
 	s := &GRPCService{
 		server: grpc.NewServer(grpc.ConnectionTimeout(cfg.GRPC.ConnectionTimeout),
 			grpc.UnaryInterceptor(recoverUnaryRPC), grpc.StreamInterceptor(recoverStreamRPC)),
@@ -48,7 +47,7 @@ func MustGrpcServ(cfg global.LifecycleConfig) *GRPCService {
 		drain: cfg.GRPC.Drain,
 	}
 	healthpb.RegisterHealthServer(s.server, s.health)
-	versionv1.RegisterVersionServiceServer(s.server, &rpc.VersionService{})
+	routes.RegisterGRPC(s.server)
 	ln, err := net.Listen("tcp", cfg.GRPC.Address)
 	if err != nil {
 		panic("gRPC 监听失败")

@@ -11,12 +11,12 @@ import (
 	"testing"
 )
 
-func TestRoutesAndRecovery(t *testing.T) {
+func TestRegisterHTTPAndRecovery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	var ready atomic.Bool
 	r := gin.New()
 	r.Use(httpmd.Recovery)
-	Register(r, ready.Load)
+	RegisterHTTP(r, ready.Load)
 	r.GET("/panic", func(*gin.Context) { panic("secret-token") })
 	r.GET("/partial", func(c *gin.Context) { c.String(200, "partial"); panic("secret") })
 	request := func(path string) *httptest.ResponseRecorder {

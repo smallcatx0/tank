@@ -45,10 +45,11 @@ go test -count=1 ./internal/bootstrap -run '^TestGRPCVersionMatchesHTTP$'
 
 - [协议](../api/version/v1/version.proto)：请求、响应及方法契约。
 - [实现](../controller/rpc/version.go)：读取服务版本配置。
-- [装配](../internal/bootstrap/grpc.go)：在监听前直接 RegisterVersionServiceServer。
+- [注册](../routes/grpc.go)：在 RegisterGRPC 中注册 VersionService。
+- [装配](../internal/bootstrap/grpc.go)：在监听前调用 routes.RegisterGRPC。
 - [客户端](../test/grpc_version/main.go)：deadline、状态错误和连接关闭示例。
 
-复制模板后不需要版本 RPC 时，删除 RegisterVersionServiceServer 调用及对应导入，再删除 `api/version`、`controller/rpc`、`test/grpc_version` 和版本 RPC 专用测试。标准 Health 服务不依赖版本 RPC。
+复制模板后不需要版本 RPC 时，删除 `routes/grpc.go` 中的 RegisterVersionServiceServer 调用及对应导入，再删除 `api/version`、`controller/rpc`、`test/grpc_version` 和版本 RPC 专用测试。标准 Health 服务不依赖版本 RPC。
 
 ## 修改协议后重新生成
 

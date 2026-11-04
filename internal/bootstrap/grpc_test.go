@@ -54,7 +54,7 @@ func TestGRPCVersionMatchesHTTP(t *testing.T) {
 	resp, err := client.Version(ctx, &versionv1.VersionRequest{})
 	require.NoError(t, err)
 	engine := gin.New()
-	routes.Register(engine, func() bool { return true })
+	routes.RegisterHTTP(engine, func() bool { return true })
 	w := httptest.NewRecorder()
 	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
 	require.Equal(t, http.StatusOK, w.Code)

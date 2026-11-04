@@ -1,5 +1,9 @@
 # 当前现状
 
+- HTTP 路由与 gRPC 业务服务分别在 routes.RegisterHTTP、routes.RegisterGRPC 注册；bootstrap 在监听前调用对应入口，并管理标准 gRPC Health 服务及服务器生命周期。
+
+- 用户控制器是未注册的 demo：不检查身份，创建仅校验并返回 demo/validated；列表通过 global.MysqlCli 查询 users 表，当前只应用手机号筛选，并直接返回 schema.User。接入步骤见 [业务接入指南](docs/业务接入指南.md)。
+
 - SuccJsonRaw 保留原始 JSON 透传，成功码为 0，request_id 经 JSON 转义；data 合法性由调用方保证。
 
 - HTTP Response/Fail 识别错误链中的 *Exception 和 Exception，保留业务状态码、错误码及响应内容；nil error 和匹配到的空 *Exception 返回通用 500 错误；dev 普通错误保留完整原始消息，非 dev 使用通用消息。
@@ -11,6 +15,8 @@
 - WaitingExit 显式接收 HTTP/gRPC 两个结果通道，普通 select 等待信号或服务停止，nil 通道不参与等待；Cleanup 仅负责关闭。closeResource 逐项隔离清理异常，按入口顺序关闭，保留总期限/二次信号强退。
 
 # 已知问题
+
+- 当前环境未启用 CGO，无法执行竞态检测。
 
 - main 包快速失败测试在普通模式和 -short 下均执行；API 完整入口集成由 -short 跳过，非短模式须显式提供隔离 MySQL 参数，Redis 使用测试内 miniredis。
 - 全仓覆盖率尚低于规范 85% 门槛；gRPC 尚无生产业务 RPC、TLS、鉴权或反射。

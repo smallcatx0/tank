@@ -35,7 +35,7 @@ func MustStartHTTP(cfg global.LifecycleConfig) *HTTPService {
 	engine := gin.New()
 	engine.Use(httpmd.Recovery)
 
-	routes.Register(engine, ready.Load)
+	routes.RegisterHTTP(engine, ready.Load)
 
 	// 步骤2：监听成功后发布就绪，关闭时由 HTTPService 撤销。
 	opts := httpOptions{
