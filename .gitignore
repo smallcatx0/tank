@@ -1,0 +1,40 @@
+# 编译产物与可执行文件
+/bin/
+/dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# 测试与覆盖率产物
+coverage.out
+coverage.html
+*.test
+
+# 基准测试输出
+bench*.txt
+
+# 依赖目录
+vendor/
+
+# 环境与密钥（禁止提交真实配置）
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# IDE 与编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 操作系统
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 日志与临时文件
+*.log
+tmp/

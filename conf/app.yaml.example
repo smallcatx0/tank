@@ -1,0 +1,48 @@
+name: app
+desc: 应用程序配置
+ver: 1.0.0
+env: dev
+debug: true # 业务调试标记；HTTP 仅使用 http.debug
+
+# 日志配置
+log:
+  type: stdout #可选 file stdout
+  level: DEBUG 
+  path: "./logs/log.log"
+  max_size: 32
+  max_age: 30
+  max_backups: 300
+
+
+
+# 主数据库
+mysql:
+  debug: true
+  dsn: 'root:123123@tcp(mysql-serv:3306)/bs?charset=utf8&parseTime=True&loc=Local'
+  maxIdleConns: 10
+  maxOpenConns: 100
+  connMaxLifetime: 6
+
+#主redis
+redis: 
+  addr: redis-serv:6379
+  db: 0
+  pwd: ''
+  pool_size: 30
+  max_reties: 3
+  idle_timeout: 1000
+
+# HTTP 生命周期（时长必须带单位，端口不允许为 0）
+http:
+  port: 8080
+  debug: false
+  read_header_timeout: 5s
+  read_timeout: 15s
+  write_timeout: 15s
+  idle_timeout: 60s
+  drain_timeout: 20s
+startup_timeout: 15s
+shutdown_timeout: 30 # 秒，必须大于 HTTP 排空期限
+metrics:
+  enable: false
+  dt: 10 # 秒
