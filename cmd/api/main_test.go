@@ -29,6 +29,8 @@ func entryCommand(t *testing.T, config string) (*exec.Cmd, context.Context) {
 	cmd.Env = append(os.Environ(), "D02_ENTRY_HELPER=1", "D02_ENTRY_CONFIG="+file)
 	return cmd, ctx
 }
+
+// TestEntryStartupPanic 验证快速失败入口，不连接外部存储，-short 下仍执行。
 func TestEntryStartupPanic(t *testing.T) {
 	for _, tc := range []struct{ name, config, want string }{
 		{"invalid-http", "http:\n  port: 0\n", "配置 http.port"},

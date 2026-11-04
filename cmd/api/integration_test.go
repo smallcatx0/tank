@@ -14,8 +14,12 @@ import (
 	"time"
 )
 
-// TestEntryIsolated 运行真实 main 子进程；仅使用显式隔离 MySQL 和本测试的 Redis。
+// TestEntryIsolated 运行完整 main 子进程；-short 跳过，非短模式仍须显式提供隔离 MySQL。
+// Redis 使用本测试创建的 miniredis，不连接外部 Redis。
 func TestEntryIsolated(t *testing.T) {
+	if testing.Short() {
+		t.Skip("-short 跳过完整入口启动/退出集成；需在非短模式显式配置 D02_TEST_MYSQL_DSN")
+	}
 	dsn := os.Getenv("D02_TEST_MYSQL_DSN")
 	if dsn == "" {
 		t.Skip("需要隔离 MySQL 的 D02_TEST_MYSQL_DSN")

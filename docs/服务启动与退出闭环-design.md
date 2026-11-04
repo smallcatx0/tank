@@ -168,6 +168,13 @@ metrics:
 
 ### 10. 验证命令、基线与验收限制
 
+main 包测试按成本和依赖执行，不整体排除：
+
+- 两个入口的 TestEntryStartupPanic 为快速失败测试，只用临时配置和子进程，不连接外部存储；普通模式及 -short 均执行，保留非零退出、敏感信息不输出和 worker 忽略 HTTP 配置的断言。
+- API 的 TestEntryIsolated 涉及完整启动、存储连接、就绪轮询和退出，-short 优先跳过，即使环境变量已设置也不执行；非短模式仍须显式提供 D02_TEST_MYSQL_DSN，缺少时报告跳过。当前该用例使用真实隔离 MySQL + 测试内 miniredis，并非真实 Redis 集成；不新增外部 Redis 依赖。其他包已有真实存储集成开关不变。
+- main 包快速检查：go test -short ./cmd/...；普通入口测试：go test ./cmd/...；隔离入口集成：配置专用 D02_TEST_MYSQL_DSN 后执行 go test -count=1 -run '^TestEntryIsolated$' ./cmd/api（不加 -short，正常 SIGTERM 用例在 Linux 执行）。
+- 修改启动/退出装配或发布前须运行非短模式和显式隔离集成；短模式通过或集成跳过不能视为全量回归通过。本次不调整其他包的 -short 行为，不能据此保证 go test -short ./... 不访问外部存储。
+
 实施时先执行 build/vet、受影响包单测、局部覆盖率与 race，再在隔离环境执行全量回归。核心覆盖率目标按项目规范；不得把局部覆盖率达到 85% 描述成全仓达标。
 
 上轮评审已识别的基线条件：默认 task 测试向真实 Redis 投递大量消息、MySQL 测试缺少有效配置；本机 CGO 关闭且 staticcheck 未安装；当前仓库无有效 HEAD，不能直接创建 HEAD 基线 worktree。这些不是本项已修复的问题。
@@ -204,6 +211,8 @@ metrics:
 - [ ] 按协议收尾并归档。
 
 ## 验收结论
+
+main 测试分级（2026-11-04）：保留两个入口的快速失败子进程测试在 -short 下执行；API 完整入口集成增加 testing.Short 跳过，并保留显式隔离 MySQL 参数门槛与 miniredis。未改生产代码。按用户要求仅修改及格式化，未运行测试、构建或静态检查。
 
 退出实现合并（2026-11-04）：合并 WaitingExit/waitingExit，保留 closeResource，信号范围、清理顺序、退出码、日志最后关闭及总超时/二次信号强退逻辑不变。测试改走公开入口；增加跨平台 HTTP 触发的清理/日志卡住子进程用例，保留 Linux 正常信号及二次信号用例，补充 closeResource 错误传播断言。二次信号用例的总退出期限长于父测试期限，避免超时误报。按用户要求仅修改及格式化，未运行测试、构建或静态检查。运行栈就绪检测属于测试实现约束，尚未实测。
 
