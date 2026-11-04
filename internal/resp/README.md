@@ -17,7 +17,7 @@
 
 `Exception` 通过指针实现 error，`errors.As` 支持 `%w` 包装。`Warp` 是存量预留字段，未实现 Unwrap。预置异常为共享对象，不得修改字段；带业务数据时新建异常。
 
-普通系统错误在 dev 和非 dev 都写安全诊断日志；日志字段策略见 [日志说明](../../pkg/logger/README.md)。dev 回显不会新增堆栈输出；密码、token 等敏感值仍应在构造错误前脱敏。HTTP panic 恢复固定返回服务错误，不回显 panic 值。
+普通系统错误在 dev 和非 dev 都通过 zap.Error(err) 记录完整错误日志；日志字段策略见 [日志说明](../../pkg/logger/README.md)。dev 回显不会新增堆栈输出；密码、token 等敏感值仍应在构造错误前脱敏。HTTP panic 恢复固定返回服务错误，不回显 panic 值。
 
 ## 请求标识
 

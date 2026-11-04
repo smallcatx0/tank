@@ -78,19 +78,25 @@ func TestRequestLogsAndErrorBoundaries(t *testing.T) {
 	require.Len(t, files, 1)
 	data, err := os.ReadFile(files[0])
 	require.NoError(t, err)
-	for _, value := range strings.Fields(secret) {
-		require.NotContains(t, string(data), value)
-	}
-	var completed int
+	var completed, failed int
 	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
 		var entry map[string]any
 		require.NoError(t, json.Unmarshal([]byte(line), &entry))
 		require.Equal(t, "0123456789abcdef", entry["trace_id"])
 		require.Contains(t, entry, "latency_ms")
+		if entry["msg"] == "请求处理失败" {
+			failed++
+			require.Equal(t, "查询店铺: "+secret, entry["error"])
+		} else {
+			for _, value := range strings.Fields(secret) {
+				require.NotContains(t, line, value)
+			}
+		}
 		if entry["msg"] == "HTTP 请求完成" {
 			completed++
 			require.NotContains(t, entry["route"], "?")
 		}
 	}
 	require.Equal(t, 8, completed)
+	require.Equal(t, 2, failed, "dev/prod 都记录完整错误")
 }

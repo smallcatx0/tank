@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"serv_tpl/internal/errinfo"
 	"serv_tpl/internal/requestctx"
 
 	"serv_tpl/internal/global"
@@ -70,8 +69,7 @@ func Response(c *gin.Context, err error) {
 }
 
 func logSystemError(c *gin.Context, err error) {
-	fields := errinfo.Fields(err)
-	fields = append(fields, zap.String("operation", c.FullPath()), zap.String("trace_id", c.GetString(RequestIDKey)))
+	fields := []zap.Field{zap.Error(err), zap.String("operation", c.FullPath()), zap.String("trace_id", c.GetString(RequestIDKey))}
 	if c.Request != nil {
 		fields = append(fields, zap.Float64("latency_ms", requestctx.LatencyMS(c.Request.Context())))
 	}

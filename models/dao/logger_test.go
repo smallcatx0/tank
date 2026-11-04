@@ -9,12 +9,11 @@ import (
 	"path/filepath"
 	"serv_tpl/internal/requestctx"
 	"serv_tpl/pkg/logger"
-	"strings"
 	"testing"
 	"time"
 )
 
-func TestSQLLoggerNeverFormatsSensitiveData(t *testing.T) {
+func TestSQLLoggerRecordsErrorWithoutFormattingSQL(t *testing.T) {
 	dir := t.TempDir()
 	h, err := logger.NewFileLogger(filepath.Join(dir, "sql.log"), "debug")
 	require.NoError(t, err)
@@ -39,10 +38,7 @@ func TestSQLLoggerNeverFormatsSensitiveData(t *testing.T) {
 	require.Len(t, files, 1)
 	data, err := os.ReadFile(files[0])
 	require.NoError(t, err)
-	for _, value := range strings.Fields(secret) {
-		require.NotContains(t, string(data), value)
-	}
-	require.Contains(t, string(data), `"mysql_code":1062`)
+	require.Contains(t, string(data), `"error":"Error 1062: `+secret+`"`)
 	require.Contains(t, string(data), `"trace_id":"0123456789abcdef"`)
 	require.Contains(t, string(data), "数据库慢操作")
 	require.Contains(t, string(data), "数据库操作")
