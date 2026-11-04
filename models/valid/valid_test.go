@@ -61,10 +61,10 @@ func TestPlainJSON(t *testing.T) {
 	require.Equal(t, 1, p.Value)
 }
 
-func TestUserAddValid(t *testing.T) {
-	for _, name := range []string{"alice", "admin", "root"} {
-		p := &UserAdd{Username: name}
-		if name == "alice" {
+func TestShopAddValid(t *testing.T) {
+	for _, name := range []string{"中心店", "", " \t\n"} {
+		p := &ShopAdd{Name: name}
+		if name == "中心店" {
 			require.NoError(t, p.Valid())
 		} else {
 			require.Error(t, p.Valid())

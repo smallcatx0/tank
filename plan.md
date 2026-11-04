@@ -1,4 +1,6 @@
 # 计划与想法
+- [x] [D17 店铺表模型定义](docs/history/店铺表模型定义-design.md)（模型编译、相关测试和静态检查通过）。
+- [x] [D16 店铺接口演示替换](docs/history/店铺接口演示替换-design.md)（示例及测试替换，回归、静态检查与构建通过）。
 - [x] [D15 HTTP 注册入口命名统一](docs/history/HTTP注册入口命名统一-design.md)（相关回归、静态检查与构建通过）。
 - [x] [D14 gRPC 业务注册入口抽离](docs/history/gRPC业务注册入口抽离-design.md)（注册及集成回归、静态检查和构建通过）。
 - [x] [D13 接入指南步骤精简](docs/history/接入指南步骤精简-design.md)（操作流程精简及链接检查通过）。
