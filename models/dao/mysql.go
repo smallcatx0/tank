@@ -4,16 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
+
 	driver "github.com/go-sql-driver/mysql"
-	"serv_tpl/pkg/logger"
+
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	gormL "gorm.io/gorm/logger"
+	gormlog "gorm.io/gorm/logger"
 )
 
 // MysqlOptions 连接参数：由装配层从配置解析后传入，dao 自身不读配置、不持有全局实例
@@ -71,8 +70,8 @@ func OpenMysqlContext(ctx context.Context, o MysqlOptions) (*gorm.DB, error) {
 	if err = pool.PingContext(ctx); err != nil {
 		return nil, errors.New("mysql 初始化连接失败")
 	}
-	w := &ZapWriter{logger.L().With(zap.String("type", "sql"))}
-	sqlLogger := gormL.New(w, gormL.Config{SlowThreshold: 200 * time.Millisecond, LogLevel: gormL.Silent, ParameterizedQueries: true})
+
+	sqlLogger := sqlLogger{level: gormlog.Warn}
 	db, err := gorm.Open(mysql.New(mysql.Config{Conn: pool, SkipInitializeWithVersion: true}), &gorm.Config{Logger: sqlLogger, DisableAutomaticPing: true})
 	if err != nil {
 		return nil, errors.New("mysql ORM 初始化失败")
@@ -115,20 +114,3 @@ func DsnMask(dsn string) string {
 	u := strings.SplitN(info[0], ":", 2)
 	return u[0] + ":******@" + info[1]
 }
-
-// 接管mysql 日志
-type ZapWriter struct {
-	*zap.Logger
-}
-
-func (w *ZapWriter) Printf(tpl string, args ...any) {
-	tpl = strings.ReplaceAll(tpl, "\n", " ")
-	msg := "[sql] " + fmt.Sprintf(tpl, args...)
-	if len(args) > 1 && isError(args[1]) {
-		w.Error(msg)
-	} else {
-		w.Info(msg)
-	}
-}
-
-func isError(v any) bool { _, ok := v.(error); return ok }

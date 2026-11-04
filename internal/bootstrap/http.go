@@ -33,7 +33,7 @@ func MustStartHTTP(cfg global.LifecycleConfig) *HTTPService {
 	}
 	ready := new(atomic.Bool)
 	engine := gin.New()
-	engine.Use(httpmd.Trace, httpmd.Recovery)
+	engine.Use(httpmd.Trace, httpmd.ReqLog, httpmd.Recovery)
 
 	routes.RegisterHTTP(engine, ready.Load)
 

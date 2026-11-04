@@ -1,32 +1,49 @@
 package v1
 
 import (
+	"context"
 	"serv_tpl/internal/global"
+	"serv_tpl/internal/requestctx"
 	"serv_tpl/internal/resp"
 	"serv_tpl/models/dao/schema"
 	"serv_tpl/models/valid"
+	"serv_tpl/pkg/logger"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
-// Shop 演示参数验证、错误响应及分页，不执行数据库读写。
+var defaultTimeout = time.Second
+
+// Shop 提供默认开启的店铺示例，使用全局数据库连接
 type Shop struct{}
 
-// Create 校验店铺参数并返回演示结果，不实际创建店铺。
-func (*Shop) Create(c *gin.Context) {
-	// 步骤1：绑定 JSON，并执行标签及自定义校验。
+// Create 校验参数并真正写入店铺，成功后返回新记录。
+func (Shop) Create(c *gin.Context) {
+	// 步骤1：校验参数，业务期限从请求 context 派生。
 	p := valid.ShopAdd{}
 	if err := valid.BindJsonAndCheck(c, &p); err != nil {
 		resp.Fail(c, err)
 		return
 	}
-	// 步骤2：实际接入时在此调用创建业务。
-	resp.Succ(c, gin.H{"demo": true, "validated": true})
+
+	// 业务逻辑
+	ctx, cancel := context.WithTimeout(c.Request.Context(), defaultTimeout)
+	defer cancel()
+	shop := schema.Shop{Name: p.Name, Status: p.Status}
+	if err := shop.Create(ctx, global.MysqlCli); err != nil {
+		resp.Fail(c, err)
+		return
+	}
+	logger.L().Info("创建店铺", zap.Uint64("shop_id", shop.ID), zap.String("status", shop.Status),
+		zap.String("trace_id", requestctx.TraceID(ctx)), zap.Float64("latency_ms", requestctx.LatencyMS(ctx)))
+
+	resp.Succ(c, shop)
 }
 
-// List 使用固定店铺数据演示筛选与分页响应。
-func (*Shop) List(c *gin.Context) {
-	// 步骤1：绑定可选筛选条件，参数错误统一返回。
+// List 按状态筛选并返回稳定排序的分页结果。
+func (Shop) List(c *gin.Context) {
 	p := struct {
 		Status string `form:"status" binding:"omitempty,oneof=enable disable"`
 	}{}
@@ -34,28 +51,16 @@ func (*Shop) List(c *gin.Context) {
 		resp.Fail(c, err)
 		return
 	}
-
-	// 步骤2：准备查询条件。
-	q := global.MysqlCli.Table("shops")
-	if p.Status != "" {
-		q = q.Where("status = ?", p.Status)
-	}
-
-	// 步骤3：计算分页并返回统一结构。
+	// 步骤1：Count 与 Find 共用一次操作期限。
+	ctx, cancel := context.WithTimeout(c.Request.Context(), defaultTimeout)
+	defer cancel()
 	pg := resp.NewPage(c)
-	q, err := pg.Paginate(q)
+	list, err := schema.ListShops(ctx, global.MysqlCli, p.Status, pg)
 	if err != nil {
 		resp.Fail(c, err)
 		return
 	}
-	if pg.Total == 0 {
-		resp.Paginate(c, pg, nil)
-		return
-	}
-	list := make([]schema.Shop, 0, pg.Limit)
-	if err := q.Find(&list).Error; err != nil {
-		resp.Fail(c, err)
-		return
-	}
+	logger.L().Info("查询店铺", zap.String("status", p.Status), zap.Int("page", pg.Page), zap.Int("limit", pg.Limit),
+		zap.String("trace_id", requestctx.TraceID(ctx)), zap.Float64("latency_ms", requestctx.LatencyMS(ctx)))
 	resp.Paginate(c, pg, list)
 }

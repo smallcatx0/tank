@@ -30,13 +30,13 @@ func RegisterHTTP(r *gin.Engine, ready func() bool) {
 }
 
 func registAdmin(r *gin.Engine) {
+	s := v1.Shop{}
 
 	shopRout := r.Group("/admin/shop").
 		Use(
 		// 绑定在特定路由组下的中间件
 		)
 
-	s := v1.Shop{}
 	shopRout.POST("/create", s.Create)
 	shopRout.GET("/list", s.List)
 }

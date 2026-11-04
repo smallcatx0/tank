@@ -2,13 +2,14 @@ package routes
 
 import (
 	"encoding/json"
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"serv_tpl/internal/httpmd"
 	"sync/atomic"
 	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRegisterHTTPAndRecovery(t *testing.T) {

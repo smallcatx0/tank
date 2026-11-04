@@ -38,14 +38,14 @@ func TestMustStartHTTPAssembly(t *testing.T) {
 			request := func(path string) int {
 				w := httptest.NewRecorder()
 				req := httptest.NewRequest(http.MethodGet, path, nil)
-				req.Header.Set("request_id", "assembly-request")
+				req.Header.Set("x-b3-traceid", "0123456789abcdef")
 				s.server.Handler.ServeHTTP(w, req)
 				if path != "/reload" {
 					var body struct {
 						RequestID string `json:"request_id"`
 					}
 					require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-					require.Equal(t, "assembly-request", body.RequestID)
+					require.Equal(t, "0123456789abcdef", body.RequestID)
 				}
 				return w.Code
 			}

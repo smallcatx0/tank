@@ -1,8 +1,11 @@
 package resp
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"serv_tpl/internal/errinfo"
+	"serv_tpl/internal/requestctx"
 
 	"serv_tpl/internal/global"
 	"serv_tpl/pkg/logger"
@@ -32,6 +35,10 @@ type body struct {
 
 // Response 统一返回，识别错误链中的业务异常；nil error 或空 *Exception 按通用服务错误处理。
 func Response(c *gin.Context, err error) {
+	if c.Request != nil && c.Request.Context().Err() == context.Canceled {
+		c.Abort()
+		return
+	}
 	// 步骤1：为空错误保留失败响应，避免调用 Error 或解引用空指针。
 	httpCode := 500
 	b := body{ErrCode: 50000, Msg: "服务错误"}
@@ -39,6 +46,9 @@ func Response(c *gin.Context, err error) {
 	var e *Exception
 	switch {
 	case err == nil:
+	case errors.Is(err, context.DeadlineExceeded):
+		httpCode, b.ErrCode, b.Msg = 504, 50400, "请求处理超时"
+		logSystemError(c, err)
 	case errors.As(err, &e):
 		if e == nil {
 			break
@@ -48,15 +58,24 @@ func Response(c *gin.Context, err error) {
 		b.Msg = e.Msg
 		b.Data = e.Data
 	default:
+		logSystemError(c, err)
 		if global.Env() == "dev" {
 			b.Msg = err.Error()
 		} else {
-			logger.L().Error(c.Request.RequestURI, zap.Error(err), zap.String("request_id", c.GetString(RequestIDKey)))
 			b.Msg = "服务错误"
 		}
 	}
 	b.RequestID = c.GetString(RequestIDKey) // 中间件统一写入的值，与 SuccJsonRaw 保持一致
 	c.JSON(httpCode, &b)
+}
+
+func logSystemError(c *gin.Context, err error) {
+	fields := errinfo.Fields(err)
+	fields = append(fields, zap.String("operation", c.FullPath()), zap.String("trace_id", c.GetString(RequestIDKey)))
+	if c.Request != nil {
+		fields = append(fields, zap.Float64("latency_ms", requestctx.LatencyMS(c.Request.Context())))
+	}
+	logger.L().Error("请求处理失败", fields...)
 }
 
 func Succ(c *gin.Context, data any) {

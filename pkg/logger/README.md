@@ -44,7 +44,7 @@ func main() {
 ```go
 import "serv_tpl/pkg/logger"
 
-logger.L().Error("处理失败: " + err.Error())
+logger.L().Error("处理失败", zap.String("operation", "shop.create"))
 ```
 
 配置文件（`conf/app.yaml`）相关键：
@@ -144,3 +144,10 @@ go test -race ./pkg/logger/...
 HTTP 入口：`go run ./cmd/api -config conf/app.yaml`。启动仍要求有效 MySQL/Redis 配置。启动失败直接 panic；启动成功后由 WaitingExit 按入口列出的顺序关闭资源，日志最后关闭。关闭错误影响进程退出码。
 
 心跳使用 `SysStatInfo`，采样错误仅记录；panic 在心跳自身 goroutine 内恢复并记录堆栈，随后结束心跳，不影响主服务。心跳不参与 WaitingExit，随进程退出结束，允许退出期间丢失心跳日志或产生日志写入错误。`SysStatInfoContext` 仍供需要取消采样的调用方使用。HTTP 排空、存储回收和日志关闭共用总退出期限，二次信号与总超时强退不等待日志 Sync。
+
+
+## 请求及数据库诊断日志
+
+HTTP 完成日志携带 method、route（路由模板）、status、trace_id、latency_ms，不读取 body，不输出完整 URI、请求头和查询串。店铺日志只记录店铺 ID、状态、页码和条数等允许字段，不记录店铺名称。
+
+系统错误通过 internal/errinfo 提取 error_type、error_category 和可用的 mysql_code，不记录第三方错误原文。GORM 适配器不调用 SQL 格式化回调，Debug 模式同样不输出 SQL、参数或驱动错误消息；保留慢操作、错误类别、耗时及 trace_id。响应中的 dev 联调错误回显规则见 [响应包说明](../../internal/resp/README.md)。

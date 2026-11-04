@@ -3,6 +3,8 @@
 package httpmd
 
 import (
+	"encoding/hex"
+	"serv_tpl/internal/requestctx"
 	"strings"
 
 	uuid "github.com/satori/go.uuid"
@@ -13,15 +15,27 @@ import (
 // RequestIDHeader 是调用方传入请求标识的 HTTP 请求头名称。
 const RequestIDHeader = "x-b3-traceid"
 
-// Trace 将请求头中的标识写入 Gin 上下文，供响应和日志关联；缺失时保留空字符串。
+// Trace 校验 B3 标识并写入 Gin 和标准 context；非法或缺失时生成新标识。
 func Trace(c *gin.Context) {
 	// 步骤1：在业务处理及错误恢复之前写入本次请求标识。
 	requestID := c.GetHeader(RequestIDHeader)
-	if requestID == "" {
+	if !validTraceID(requestID) {
 		requestID = uuid.NewV4().String()
 		requestID = strings.ReplaceAll(requestID, "-", "")
 	}
+	requestID = strings.ToLower(requestID)
+	c.Request = c.Request.WithContext(requestctx.WithTrace(c.Request.Context(), requestID))
 	c.Set(RequestIDKey, requestID)
 	c.Header(RequestIDKey, requestID)
 	c.Next()
+}
+
+func validTraceID(id string) bool {
+	if len(id) != 16 && len(id) != 32 {
+		return false
+	}
+	if _, err := hex.DecodeString(id); err != nil {
+		return false
+	}
+	return strings.Trim(id, "0") != ""
 }
