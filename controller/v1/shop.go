@@ -16,7 +16,7 @@ import (
 
 var defaultTimeout = time.Second
 
-// Shop 提供默认开启的店铺示例，使用全局数据库连接
+// Shop CRUD Demo
 type Shop struct{}
 
 // Create 校验参数并真正写入店铺，成功后返回新记录。

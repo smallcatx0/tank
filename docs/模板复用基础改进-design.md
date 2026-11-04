@@ -102,8 +102,8 @@ Prometheus、可选存储装配、Dockerfile/CI、整体配置清理、生命周
 - [x] 用户明确进入开发阶段。
 - [x] 完成四项改进及配套测试、SQL、接入说明。
 - [x] 完成全量检查、隔离集成、覆盖率统计及真实 API 冒烟验证。
-- [ ] 高风险变更人工确认。
-- [ ] 按仓库流程收尾归档。
+- [x] 高风险变更人工确认。
+- [x] 按仓库流程收尾归档。
 
 ## 验收结论
 
@@ -140,6 +140,23 @@ Prometheus、可选存储装配、Dockerfile/CI、整体配置清理、生命周
 2026-11-04：按用户要求，将 models/shop.go 整体迁移到 models/dao/schema/shop.go，包名改为 schema；控制器、测试和文档引用同步调整。项目规范明确 schema 为 GORM 模型定义包，承载表结构、字段枚举及相关模型方法。此次只调整归属与引用，数据访问和 HTTP 行为保持一致。
 
 Windows 下 go test ./controller/... ./models/... ./routes ./internal/bootstrap、go build ./cmd/...、go vet ./... 均通过。隔离 Linux/MySQL 下 go test -count=1 -race -v ./controller/v1 ./models/... ./routes 通过，TestShopIsolated 实际执行，覆盖创建、筛选分页、固定 1 秒超时、取消、Count/Find 共用期限及 dev/prod 错误差异。D02 存储集成用例因未配置对应环境变量跳过；本轮未重复全量回归、覆盖率与 Staticcheck。临时容器、数据卷及网络已清理。迁移风险为中（模型导入路径变化），相关单元与集成验证通过，D19 整体仍待人工确认。
+
+### gRPC 接入指南补充
+
+按用户要求在根目录业务接入指南补齐现有版本 RPC 从协议定义、固定版本工具安装、代码生成、业务实现、注册、配置启动到客户端调用与排错的完整流程。以现有实现为依据，不新增业务接口或更改服务运行行为；api/README.md 改为引用指南，避免重复维护工具版本和生成命令。requestctx 按用户确认保留独立包。
+
+初次文档检查：指南中的 go test ./routes -run TestRegisterGRPC -count=1、go test ./internal/bootstrap -run TestGRPC -count=1、go build ./cmd/... ./test/grpc_version 均通过；生成参数与官方文档核对，工具版本与已提交生成文件头一致。当时未安装生成工具；后续实跑结果见下节。
+
+### 协议生成实跑验收
+
+2026-11-04，Windows：从官方 v33.0 发布资产下载 protoc-33.0-win64.zip，安装到 C:/Users/Admin/AppData/Local/Programs/protoc-33.0，保留 bin 与 include。按指南 go install 安装两个固定版本插件到 C:/Users/Admin/go/bin；两个 bin 目录已加入用户 PATH，重载实际用户环境后 Get-Command 能定位三个命令。
+
+- 版本输出：libprotoc 33.0、protoc-gen-go.exe v1.36.12、protoc-gen-go-grpc 1.6.0。生成文件头的 protoc 版本仍为 v6.33.0，指南已补充版本显示差异说明。
+- 在仓库根实际执行指南的 protoc 命令，两份生成文件去除 CRLF/LF 差异后与执行前完全一致；git diff -- api/version/v1 无内容差异，未手工调整生成代码。
+- 再次执行相同命令，生成文件 SHA256 完全一致，验证重复生成稳定。version.pb.go 为 D0290DC73DB2C4B756C7F1C635E0B29188CE8E0E395F401273FDE089CC4219EB；version_grpc.pb.go 为 3B3756448141842DA47891D40EB53FBE75EEDCD49FB3B9CBB627D003DFEF9C2C（按生成器输出的 LF 字节统计）。
+- go test ./routes -run TestRegisterGRPC -count=1、go test ./internal/bootstrap -run TestGRPC -count=1 -v 均通过，含真实回环 RPC 版本查询、健康状态、取消后排空、排空超时、监听/Serve 故障和 panic 恢复。
+- go build ./cmd/... ./test/grpc_version 与 go vet ./api/... ./controller/rpc ./routes ./internal/bootstrap ./test/grpc_version 通过。
+- 本轮仅安装工具、验证生成并补充文档；未修改协议或业务行为，未重复全量竞态/覆盖率，也未单独启动依赖 MySQL/Redis 的 API 进程冒烟。
 
 ### 影响范围说明
 
