@@ -3,10 +3,10 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"serv_tpl/internal/global"
 	"serv_tpl/pkg/logger"
 	sthjob "serv_tpl/pkg/sth_job"
-	"math/rand"
 	"strings"
 	"time"
 

@@ -3,7 +3,7 @@ package v1
 import (
 	"serv_tpl/internal/resp"
 	"serv_tpl/internal/global"
-	"serv_tpl/models/dao/rds"
+	"serv_tpl/models/dao/schema"
 	"serv_tpl/models/valid"
 	"strings"
 	"time"
@@ -22,7 +22,7 @@ func (User) RegistByPhone(c *gin.Context) {
 		return
 	}
 	// 先判断手机号是否存在
-	u := &rds.User{
+	u := &schema.User{
 		Phone: param.Phone,
 	}
 	exist, err := u.GetByPhone()
@@ -34,7 +34,7 @@ func (User) RegistByPhone(c *gin.Context) {
 		resp.Fail(c, resp.ParamInValid("手机号已经存在"))
 		return
 	}
-	u = &rds.User{
+	u = &schema.User{
 		Phone: param.Phone,
 	}
 	u.User = u.AutoUseName() // 自动生成用户名
@@ -53,7 +53,7 @@ func (User) RegistByPhone(c *gin.Context) {
 	})
 }
 
-func grantToken(u rds.User) (string, error) {
+func grantToken(u schema.User) (string, error) {
 	j := &valid.JWTData{
 		Uid:   u.Id,
 		User:  u.User,
@@ -70,7 +70,7 @@ func (User) LoginByPhone(c *gin.Context) {
 		resp.Fail(c, err)
 		return
 	}
-	u := &rds.User{
+	u := &schema.User{
 		Phone: param.Phone,
 	}
 	exist, err := u.GetByPhone()
@@ -100,7 +100,7 @@ func (User) LoginByPwd(c *gin.Context) {
 		resp.Fail(c, err)
 		return
 	}
-	u := &rds.User{User: p.User}
+	u := &schema.User{User: p.User}
 	ok, err := u.GetByUser()
 	if err != nil {
 		resp.Fail(c, err)
@@ -143,7 +143,7 @@ func (User) Info(c *gin.Context) {
 		UpdatedAt time.Time `gorm:"column:updated_at" json:"updated_at"`
 	}
 	u := User{}
-	err := global.MysqlCli.Model(&rds.User{}).First(&u, t.Uid).Error
+	err := global.MysqlCli.Model(&schema.User{}).First(&u, t.Uid).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -164,7 +164,7 @@ func (User) ModPass(c *gin.Context) {
 		resp.Fail(c, resp.NoLogin)
 		return
 	}
-	u := &rds.User{}
+	u := &schema.User{}
 	err = global.MysqlCli.First(u, t.Uid).Error
 	if err != nil {
 		resp.Fail(c, err)
@@ -210,7 +210,7 @@ func (User) ModInfo(c *gin.Context) {
 		resp.Fail(c, err)
 		return
 	}
-	u := &rds.User{}
+	u := &schema.User{}
 	// 判断user是否存在
 	if p.User != "" {
 		u.Id = t.Uid

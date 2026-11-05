@@ -3,7 +3,7 @@ package v1
 import (
 	"serv_tpl/internal/resp"
 	"serv_tpl/internal/global"
-	"serv_tpl/models/dao/rds"
+	"serv_tpl/models/dao/schema"
 	"serv_tpl/models/valid"
 
 	"github.com/gin-gonic/gin"
@@ -19,7 +19,7 @@ func (UserAdmin) List(c *gin.Context) {
 		return
 	}
 
-	q := global.MysqlCli.Model(&rds.User{}).Omit("pass")
+	q := global.MysqlCli.Model(&schema.User{}).Omit("pass")
 	if p.Id != 0 {
 		q = q.Where("id=?", p.Id)
 	}
@@ -48,7 +48,7 @@ func (UserAdmin) List(c *gin.Context) {
 		resp.Paginate(c, pg, nil)
 		return
 	}
-	users := make([]rds.User, 0, pg.Limit)
+	users := make([]schema.User, 0, pg.Limit)
 	err = q.Find(&users).Error
 	if err != nil {
 		resp.Fail(c, err)
