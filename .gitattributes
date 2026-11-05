@@ -1,0 +1,2 @@
+# Shell 脚本在所有平台保持 LF，确保 Bash 可直接读取。
+*.sh text eol=lf

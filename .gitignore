@@ -18,6 +18,7 @@ bench*.txt
 vendor/
 
 # 环境与密钥（禁止提交真实配置）
+/.codex/config.toml
 .env
 .env.*
 !.env.example

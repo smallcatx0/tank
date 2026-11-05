@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package version.v1;
 
-option go_package = "serv_tpl/api/version/v1;versionv1";
+option go_package = "gitee.com/chengduzhihuige/go-serv-template/sdk/version/v1;versionv1";
 
 
 // VersionRequest 无需参数。
