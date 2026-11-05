@@ -2,10 +2,11 @@ package task
 
 import (
 	"serv_tpl/internal/global"
-	"serv_tpl/pkg/glog"
+	"serv_tpl/pkg/logger"
 	sthjob "serv_tpl/pkg/sth_job"
 	"time"
 
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -18,10 +19,10 @@ func StartSthTask() func() {
 		"try_sth_task",
 	)
 	if err != nil {
-		glog.ErrorF("[db_job] 启动任务失败 err=%s", err.Error())
+		logger.L().Error("[db_job] 启动任务失败", zap.String("err", err.Error()))
 		return nil
 	}
-	job.Logger = glog.D().Z()
+	job.Logger = logger.L()
 
 	// TODO: 下面这些参数从配置文件中获取
 	job.SetBufferNum(10)
@@ -69,7 +70,7 @@ func (t *BsSthTask) UpdateStatus(db *gorm.DB, ids []int64, status sthjob.TaskSta
 func (t *BsSthTask) Run(db *gorm.DB) sthjob.TaskStatus {
 	// 模拟消费任务
 	time.Sleep(time.Second)
-	glog.InfoF("[sth_task] 模拟消费 任务ID=%d 耗时1s", t.Id)
+	logger.L().Info("[sth_task] 模拟消费", zap.Int64("task_id", t.Id))
 	return sthjob.TaskStatus_done
 }
 

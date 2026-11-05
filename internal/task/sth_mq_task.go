@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"serv_tpl/internal/global"
-	"serv_tpl/pkg/glog"
+	"serv_tpl/pkg/logger"
 	sthjob "serv_tpl/pkg/sth_job"
 	"math/rand"
 	"strings"
@@ -27,7 +27,7 @@ const (
 )
 
 var (
-	ErrLogger = zap.L()
+	ErrLogger = logger.L()
 )
 
 type SthMqTask struct {
@@ -64,7 +64,7 @@ func (t *SthMqTask) Run() {
 		t.ErrMsg = t.ErrMsg[:len(t.ErrMsg)-1]
 		t.Status = RmqStatus_error
 		// 记录 错误记录
-		glog.Error("[sth_mq_task] " + string(t.Serialize()))
+		logger.L().Error("[sth_mq_task] " + string(t.Serialize()))
 	}
 }
 
@@ -80,12 +80,12 @@ func (q SthRetryWorker) Consume(dv rmq.Delivery) {
 	err := task.Unserialize([]byte(raw))
 	if err != nil {
 		// 丢回去下次消费依然反序列化失败，直接记录日志后ACK吧
-		glog.L().Error("消费数据失败", zap.String("task_raw", raw))
+		logger.L().Error("消费数据失败", zap.String("task_raw", raw))
 		err = dv.Ack()
 		IfErrLog(err)
 		return
 	}
-	glog.Debug("[sth_mq_task] 开始消费任务: " + raw)
+	logger.L().Debug("[sth_mq_task] 开始消费任务: " + raw)
 	task.Run()
 	if task.Status == RmqStatus_fail {
 		// 可重试的错误丢入错误队列中
@@ -102,22 +102,22 @@ func IfErrLog(err error, msg ...string) {
 	}
 	errMsg := strings.Join(msg, " ")
 	errMsg += " err=" + err.Error()
-	glog.Error("[sth_mq_task]" + errMsg)
+	logger.L().Error("[sth_mq_task]" + errMsg)
 }
 
 func StartRmqTask() func() {
 	mainQ, err := sthjob.NewRmqJob(global.RedisCli, "sth_task_main")
 	if err != nil {
-		glog.Error("初始化rmq队列失败")
+		logger.L().Error("初始化rmq队列失败")
 		return nil
 	}
 	retryQ, err := sthjob.NewRmqJob(global.RedisCli, "sth_task_fail")
 	if err != nil {
-		glog.Error("初始化rmq队列失败")
+		logger.L().Error("初始化rmq队列失败")
 		return nil
 	}
-	mainQ.Logger = glog.D().Z()
-	retryQ.Logger = glog.D().Z()
+	mainQ.Logger = logger.L()
+	retryQ.Logger = logger.L()
 	mainWokers := []rmq.Consumer{
 		SthRetryWorker{failQ: retryQ.Queue()},
 		SthRetryWorker{failQ: retryQ.Queue()},
@@ -130,12 +130,12 @@ func StartRmqTask() func() {
 	}
 	err = mainQ.Start(mainWokers, 10)
 	if err != nil {
-		glog.Error("启动rmq 消费任务失败")
+		logger.L().Error("启动rmq 消费任务失败")
 		return nil
 	}
 	err = retryQ.Start(retryWorkers, 4)
 	if err != nil {
-		glog.Error("启动rmq 消费任务失败")
+		logger.L().Error("启动rmq 消费任务失败")
 		return nil
 	}
 	go mainQ.MeticLog(time.Second * 10)

@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"serv_tpl/internal/global"
-	"serv_tpl/pkg/glog"
+	"serv_tpl/pkg/logger"
 
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 type Mq struct {
@@ -41,7 +42,7 @@ func (b *HttpBody) Build(jsonStr string) (err error) {
 func (mq *Mq) Push(msg MqMsg) {
 	res := global.RedisCli.LPush(context.Background(), mq.Key, msg.String())
 	if err := res.Err(); err != nil {
-		glog.Error("PushQueue err", err.Error())
+		logger.L().Error("PushQueue err", zap.String("err", err.Error()))
 	}
 }
 
