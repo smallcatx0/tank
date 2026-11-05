@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"serv_tpl/models/dao"
+	"serv_tpl/internal/global"
 )
 
 // K key拼接
@@ -33,7 +33,7 @@ func BlurTTL(sec int) int {
 
 // RateLimit 流量控制
 func RateLimit(key string, sec, max int) bool {
-	rdb := dao.RedisCli
+	rdb := global.RedisCli
 	res := rdb.Get(context.Background(), key)
 	if res.Err() != nil {
 		// 如果没有此key 创建 过期时间为time =》 true
@@ -49,8 +49,8 @@ func RateLimit(key string, sec, max int) bool {
 }
 
 func Remember(key string, f func() string, exp ...int) (string, error) {
-	key = K(dao.CachePrefix, key)
-	cli := dao.RedisCli
+	key = K(global.CachePrefix(), key)
+	cli := global.RedisCli
 	ret, err := cli.Get(context.Background(), key).Result()
 	if err == nil {
 		return ret, nil

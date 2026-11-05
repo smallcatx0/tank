@@ -19,7 +19,7 @@ mysql:
   maxIdleConns: 10 # <=0 使用 10，实际不超过 maxOpenConns
   maxOpenConns: 100 # <=0 使用 100
   connMaxLifetime: 300 # 秒；<=0 使用 300
-  prefix: '' # 表名前缀，master 兼容层 dao.MdbPrefix
+  prefix: '' # 表名前缀，global.MysqlPrefix() 读取
 
 #主redis
 redis: 
@@ -28,7 +28,7 @@ redis:
   pwd: ''
   pool_size: 30 # <=0 使用 30
   max_reties: 3 # 沿用代码键名；重试次数，0 使用客户端默认 3，-1 禁用重试
-  prefix: '' # 缓存 key 前缀，master 兼容层 dao.CachePrefix
+  prefix: '' # 缓存 key 前缀，global.CachePrefix() 读取
 
 # HTTP 生命周期（时长必须带单位，端口不允许为 0）
 http:
@@ -53,7 +53,6 @@ metrics:
   enable: false # 系统状态日志心跳
   dt: 10 # 秒；仅 enable=true 时校验，CPU 单次采样约 5s
 
-# ---- 以下为 master 业务模块（兼容层 bootstrap / models.valid）所需键，从 master 合并追加 ----
-http_port: "8080" # master 版 cmd/main.go 兼容入口使用（顶层键）
+# JWT 签名密钥（models/valid 使用，global.JwtSecret() 读取）
 jwt:
-  secret: sk # 生产环境必须修改，models/valid JWT 签名密钥
+  secret: sk # 生产环境必须修改

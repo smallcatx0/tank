@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"serv_tpl/models/dao"
+	"serv_tpl/internal/global"
 	"strconv"
 
 	"github.com/duke-git/lancet/cryptor"
@@ -31,18 +31,18 @@ type User struct {
 }
 
 func (User) TableName() string {
-	return dao.MdbPrefix + "users"
+	return global.MysqlPrefix() + "users"
 }
 
 func (u *User) GetByPhone() (bool, error) {
-	q := dao.MysqlCli.Where("phone=?", u.Phone)
+	q := global.MysqlCli.Where("phone=?", u.Phone)
 	if u.Id != 0 {
 		q = q.Where("id <> ?", u.Id)
 	}
 	return u.queryOne(q)
 }
 func (u *User) GetByUser() (bool, error) {
-	q := dao.MysqlCli.Where("user=?", u.User)
+	q := global.MysqlCli.Where("user=?", u.User)
 	if u.Id != 0 {
 		q = q.Where("id <> ?", u.Id)
 	}

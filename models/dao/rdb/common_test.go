@@ -1,6 +1,8 @@
 package rdb
 
 import (
+	"log"
+	"serv_tpl/internal/global"
 	"serv_tpl/models/dao"
 	"testing"
 
@@ -9,11 +11,15 @@ import (
 )
 
 func RedisInit() {
-	dao.ConnRedis(&redis.Options{
+	cli, err := dao.OpenRedis(&redis.Options{
 		Addr: "redis.serv:6379",
 		DB:   0,
 	})
-	dao.CachePrefix = "unitest"
+	if err != nil {
+		log.Fatal(err)
+	}
+	global.RedisCli = cli
+	global.AppConf.Set("redis.prefix", "unitest")
 }
 
 func TestK(t *testing.T) {

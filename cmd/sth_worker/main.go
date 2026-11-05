@@ -1,31 +1,42 @@
+// Command sth_worker 消费者进程：装配存储后启动任务消费，收到信号按顺序优雅退出。
 package main
 
 import (
-	"serv_tpl/bootstrap"
-	"serv_tpl/internal/task"
+	"context"
 	"log"
+	"os"
+
+	"serv_tpl/internal/bootstrap"
+	"serv_tpl/internal/global"
+	"serv_tpl/internal/task"
 )
 
 func main() {
-	bootstrap.InitFlag()
-	if !bootstrap.Flag() {
+	// 步骤1：解析参数并加载配置
+	global.InitFlag()
+	if !global.Flag() {
 		return
 	}
-	// 读取配置文件
-	bootstrap.InitConf(&bootstrap.Param.C)
-	// 初始化日志
-	bootstrap.InitLog()
-	// 初始化 数据库
-	bootstrap.InitDB()
-	// 心跳日志记录
-	bootstrap.Heartbeat()
+	global.MustInitAppConf(global.Param.C)
+	cfg := global.MustLoadWorkerLifecycleConfig(global.AppConf)
 
-	// dbClose := task.StartSthTask() // 启动数据库任务
-	rmqClose := task.StartRmqTask() // 启动RabbitMQ任务
+	// 步骤2：初始化日志和存储
+	logSync := bootstrap.MustInitLog()
+	closeDB := bootstrap.MustInitDBs(cfg.Startup)
+
+	// 步骤3：启动心跳
+	bootstrap.Heartbeat(cfg.Heartbeat, cfg.HeartbeatInterval)
+
+	// 步骤4：启动任务消费（数据库任务默认关闭，仅启用 RabbitMQ 任务）
+	// dbClose := task.StartSthTask()
+	rmqClose := task.StartRmqTask()
 	log.Printf("task worker run")
-	// 等待推出信号
-	bootstrap.WaitingExit(
-		// dbClose,
-		rmqClose,
-	)
+
+	// 步骤5：等待退出信号，按显式顺序关闭：任务 -> 存储 -> 日志
+	os.Exit(bootstrap.WaitingExit(cfg.Shutdown, nil, nil,
+		bootstrap.Cleanup{Name: "rmq-task", Stop: func(context.Context) error { rmqClose(); return nil }},
+		// bootstrap.Cleanup{Name: "db-task", Stop: func(context.Context) error { dbClose(); return nil }},
+		bootstrap.Cleanup{Name: "storage", Stop: closeDB},
+		bootstrap.Cleanup{Name: "log", Stop: logSync},
+	))
 }

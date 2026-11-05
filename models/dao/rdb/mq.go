@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"serv_tpl/models/dao"
+	"serv_tpl/internal/global"
 	"serv_tpl/pkg/glog"
 
 	"github.com/redis/go-redis/v9"
@@ -39,7 +39,7 @@ func (b *HttpBody) Build(jsonStr string) (err error) {
 }
 
 func (mq *Mq) Push(msg MqMsg) {
-	res := dao.RedisCli.LPush(context.Background(), mq.Key, msg.String())
+	res := global.RedisCli.LPush(context.Background(), mq.Key, msg.String())
 	if err := res.Err(); err != nil {
 		glog.Error("PushQueue err", err.Error())
 	}
@@ -49,7 +49,7 @@ func (mq *Mq) Push(msg MqMsg) {
 func (mq *Mq) BPop(hander func(string)) {
 	for {
 		// 阻塞式监听该key
-		res := dao.RedisCli.BRPop(context.Background(), time.Second*10, mq.Key)
+		res := global.RedisCli.BRPop(context.Background(), time.Second*10, mq.Key)
 		err := res.Err()
 		if err == nil {
 			hander(res.Val()[1])

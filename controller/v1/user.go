@@ -2,7 +2,7 @@ package v1
 
 import (
 	"serv_tpl/internal/resp"
-	"serv_tpl/models/dao"
+	"serv_tpl/internal/global"
 	"serv_tpl/models/dao/rds"
 	"serv_tpl/models/valid"
 	"strings"
@@ -38,7 +38,7 @@ func (User) RegistByPhone(c *gin.Context) {
 		Phone: param.Phone,
 	}
 	u.User = u.AutoUseName() // 自动生成用户名
-	err = dao.MysqlCli.Create(u).Error
+	err = global.MysqlCli.Create(u).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -143,7 +143,7 @@ func (User) Info(c *gin.Context) {
 		UpdatedAt time.Time `gorm:"column:updated_at" json:"updated_at"`
 	}
 	u := User{}
-	err := dao.MysqlCli.Model(&rds.User{}).First(&u, t.Uid).Error
+	err := global.MysqlCli.Model(&rds.User{}).First(&u, t.Uid).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -165,7 +165,7 @@ func (User) ModPass(c *gin.Context) {
 		return
 	}
 	u := &rds.User{}
-	err = dao.MysqlCli.First(u, t.Uid).Error
+	err = global.MysqlCli.First(u, t.Uid).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -189,7 +189,7 @@ func (User) ModPass(c *gin.Context) {
 		}
 	}
 	u.SetPass(param.Pass)
-	err = dao.MysqlCli.Select("pass").Updates(u).Error
+	err = global.MysqlCli.Select("pass").Updates(u).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -225,7 +225,7 @@ func (User) ModInfo(c *gin.Context) {
 			return
 		}
 	}
-	err = dao.MysqlCli.First(u, t.Uid).Error
+	err = global.MysqlCli.First(u, t.Uid).Error
 	if err != nil {
 		resp.Fail(c, err)
 		return
@@ -239,7 +239,7 @@ func (User) ModInfo(c *gin.Context) {
 	if p.User != "" {
 		u.User = p.User
 	}
-	res := dao.MysqlCli.
+	res := global.MysqlCli.
 		Select("nickname", "truename", "user").
 		Updates(u)
 	if res.Error != nil {

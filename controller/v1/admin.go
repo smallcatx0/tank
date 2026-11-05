@@ -2,7 +2,7 @@ package v1
 
 import (
 	"serv_tpl/internal/resp"
-	"serv_tpl/models/dao"
+	"serv_tpl/internal/global"
 	"serv_tpl/models/dao/rds"
 	"serv_tpl/models/valid"
 
@@ -19,7 +19,7 @@ func (UserAdmin) List(c *gin.Context) {
 		return
 	}
 
-	q := dao.MysqlCli.Model(&rds.User{}).Omit("pass")
+	q := global.MysqlCli.Model(&rds.User{}).Omit("pass")
 	if p.Id != 0 {
 		q = q.Where("id=?", p.Id)
 	}

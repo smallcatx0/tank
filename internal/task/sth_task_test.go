@@ -3,8 +3,8 @@ package task
 import (
 	"encoding/json"
 	"fmt"
-	"serv_tpl/models/dao"
 	"log"
+	"serv_tpl/models/dao"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,7 +20,7 @@ var (
 
 func InitDb() {
 	var err error
-	dbIns, err = dao.GetTmpMysql(
+	dbIns, err = dao.ConnMysql(
 		dbDsn,
 	)
 	if err != nil {

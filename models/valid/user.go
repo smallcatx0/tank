@@ -1,7 +1,7 @@
 package valid
 
 import (
-	"serv_tpl/internal/conf"
+	"serv_tpl/internal/global"
 	"serv_tpl/internal/resp"
 	"serv_tpl/models/dao/cal"
 	"regexp"
@@ -112,12 +112,12 @@ func (j *JWTData) Generate() (string, error) {
 	c.ExpiresAt = time.Now().Add(time.Hour).Unix()
 	c.JWTData = *j
 	t.Claims = c
-	return t.SignedString([]byte(conf.JwtSecret()))
+	return t.SignedString([]byte(global.JwtSecret()))
 }
 
 func JWTParse(token string) (*Claim, error) {
 	t, err := jwt.ParseWithClaims(token, &Claim{}, func(t *jwt.Token) (interface{}, error) {
-		return []byte(conf.JwtSecret()), nil
+		return []byte(global.JwtSecret()), nil
 	})
 	if err != nil {
 		if e, ok := err.(*jwt.ValidationError); ok {

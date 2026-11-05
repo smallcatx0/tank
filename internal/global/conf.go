@@ -60,6 +60,7 @@ func MustInitAppConf(filepath string) {
 	// 设置默认值
 	AppConf.SetDefault("env", "dev")
 	AppConf.SetDefault("debug", true)
+	AppConf.SetDefault("jwt.secret", "sk") // 默认仅供开发，生产环境必须在配置中修改
 
 	err := AppConf.ReadInConfig()
 	if err != nil {
@@ -74,4 +75,22 @@ func Env() string {
 
 func IsDebug() bool {
 	return AppConf.GetBool("debug")
+}
+
+// JwtSecret JWT 签名密钥，未初始化配置时回退默认值（仅供测试/开发）
+func JwtSecret() string {
+	if s := AppConf.GetString("jwt.secret"); s != "" {
+		return s
+	}
+	return "sk"
+}
+
+// MysqlPrefix 表名前缀（dao.MdbPrefix 语义）
+func MysqlPrefix() string {
+	return AppConf.GetString("mysql.prefix")
+}
+
+// CachePrefix 缓存 key 前缀（dao.CachePrefix 语义）
+func CachePrefix() string {
+	return AppConf.GetString("redis.prefix")
 }

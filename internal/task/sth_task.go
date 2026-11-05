@@ -1,7 +1,7 @@
 package task
 
 import (
-	"serv_tpl/models/dao"
+	"serv_tpl/internal/global"
 	"serv_tpl/pkg/glog"
 	sthjob "serv_tpl/pkg/sth_job"
 	"time"
@@ -12,8 +12,8 @@ import (
 // 开始跑起来这个任务
 func StartSthTask() func() {
 	job, err := sthjob.NewDbJob(
-		dao.MysqlCli.Debug(),
-		dao.RedisCli,
+		global.MysqlCli.Debug(),
+		global.RedisCli,
 		&BsSthTask{},
 		"try_sth_task",
 	)

@@ -3,7 +3,7 @@ package task
 import (
 	"encoding/json"
 	"fmt"
-	"serv_tpl/models/dao"
+	"serv_tpl/internal/global"
 	"serv_tpl/pkg/glog"
 	sthjob "serv_tpl/pkg/sth_job"
 	"math/rand"
@@ -106,12 +106,12 @@ func IfErrLog(err error, msg ...string) {
 }
 
 func StartRmqTask() func() {
-	mainQ, err := sthjob.NewRmqJob(dao.RedisCli, "sth_task_main")
+	mainQ, err := sthjob.NewRmqJob(global.RedisCli, "sth_task_main")
 	if err != nil {
 		glog.Error("初始化rmq队列失败")
 		return nil
 	}
-	retryQ, err := sthjob.NewRmqJob(dao.RedisCli, "sth_task_fail")
+	retryQ, err := sthjob.NewRmqJob(global.RedisCli, "sth_task_fail")
 	if err != nil {
 		glog.Error("初始化rmq队列失败")
 		return nil

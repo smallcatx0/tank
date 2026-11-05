@@ -2,9 +2,9 @@ package task
 
 import (
 	"fmt"
+	"log"
 	"serv_tpl/models/dao"
 	sthjob "serv_tpl/pkg/sth_job"
-	"log"
 	"testing"
 
 	"github.com/redis/go-redis/v9"
@@ -15,7 +15,7 @@ var redisCli *redis.Client
 
 func InitRedis() {
 	var err error
-	redisCli, err = dao.ConnRedis(&redis.Options{
+	redisCli, err = dao.OpenRedis(&redis.Options{
 		Addr: "127.0.0.1:6379",
 	})
 	if err != nil {
