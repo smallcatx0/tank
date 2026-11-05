@@ -1,0 +1,180 @@
+package glog
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+)
+
+const (
+	// 日志写入类型
+	Medium_Std  = "std"
+	Medium_File = "file"
+
+	// 日志等级
+	Level_Debug = "debug"
+	Level_Info  = "info"
+	Level_Warn  = "warn"
+	Level_Error = "error"
+	Level_Panic = "panic"
+
+	// 时间格式 毫秒值
+	LogTimeFomate = "2006-01-02 15:04:05.000"
+)
+
+type GLog struct {
+	Level     zap.AtomicLevel
+	LevelName string
+	Medium    string // 日志写入介质
+	FileName  string // 文件名
+	zap       *zap.Logger
+}
+
+var (
+	// 默认实列
+	defIns = &GLog{
+		Medium: Medium_Std,
+		Level:  zap.NewAtomicLevel(),
+		zap:    zap.NewExample(),
+	}
+)
+
+func D() *GLog {
+	return defIns
+}
+
+func L() *zap.Logger {
+	return defIns.zap
+}
+
+// 新建文件实例
+func NewFileLogger(filename, level string) (*GLog, error) {
+	l := GLog{
+		FileName:  filename,
+		LevelName: level,
+		Medium:    Medium_File,
+		Level:     zap.NewAtomicLevel(),
+	}
+	// 动态设置日志级别
+	l.SetLevel(level)
+
+	// json格式
+	config := zap.NewProductionEncoderConfig()
+	// 覆盖默认配置
+	config.EncodeTime = zapcore.TimeEncoderOfLayout(LogTimeFomate)
+	encoder := zapcore.NewJSONEncoder(config)
+
+	lessInfo := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
+		return level >= l.Level.Level() && level < zapcore.WarnLevel
+	})
+	gteWarn := zap.LevelEnablerFunc(func(level zapcore.Level) bool {
+		return level >= zapcore.WarnLevel
+	})
+	// 按天切割日志写入文件
+	infoWriter, err := fileWriter(filename, time.Hour, "")
+	if err != nil {
+		return nil, err
+	}
+	errWriter, err := fileWriter(filename, time.Hour*24, "_err")
+	if err != nil {
+		return nil, err
+	}
+	core := zapcore.NewTee(
+		zapcore.NewCore(encoder, infoWriter, lessInfo),
+		zapcore.NewCore(encoder, errWriter, gteWarn),
+	)
+	l.zap = zap.New(
+		core,
+		zap.AddCaller(),
+	)
+	return &l, nil
+}
+
+// 新建控制台实例
+func NewStdLogger(level string) (*GLog, error) {
+	l := GLog{
+		LevelName: level,
+		Medium:    Medium_Std,
+		Level:     zap.NewAtomicLevel(),
+	}
+	// 动态设置日志级别
+	l.SetLevel(level)
+	// json格式
+	encoderConf := zap.NewProductionEncoderConfig()
+	encoderConf.EncodeTime = zapcore.TimeEncoderOfLayout(LogTimeFomate)
+	encoder := zapcore.NewConsoleEncoder(encoderConf)
+	core := zapcore.NewCore(encoder, zapcore.Lock(os.Stdout), l.Level)
+	l.zap = zap.New(
+		core,
+		zap.AddCaller(),
+	)
+	return &l, nil
+}
+
+func (l *GLog) Z() *zap.Logger {
+	return l.zap
+}
+func (l *GLog) SetLevel(level string) {
+	loglevel := zapcore.InfoLevel
+	switch strings.ToLower(level) {
+	case Level_Debug:
+		loglevel = zapcore.DebugLevel
+	case Level_Info:
+		loglevel = zapcore.InfoLevel
+	case Level_Warn:
+		loglevel = zapcore.WarnLevel
+	case Level_Panic:
+		loglevel = zapcore.ErrorLevel
+	default:
+		loglevel = zapcore.InfoLevel
+	}
+	l.Level.SetLevel(loglevel)
+}
+
+func (l *GLog) Printf(tpl string, args ...interface{}) {
+	l.zap.WithOptions(zap.AddCallerSkip(1)).Info(
+		fmt.Sprintf(tpl, args...),
+	)
+}
+
+func fileWriter(filename string, rotaTime time.Duration, level string) (zapcore.WriteSyncer, error) {
+	ext := filepath.Ext(filename)
+	logfile := filename[:len(filename)-len(ext)] + level + ".%Y%m%d%H" + ext
+	// currFile := filename[:len(filename)-len(ext)] + level + ext
+	hook, err := rotatelogs.New(
+		logfile,
+		// rotatelogs.WithLinkName(currFile),
+		rotatelogs.WithMaxAge(time.Hour*24*180),
+		rotatelogs.WithRotationTime(rotaTime),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	return zapcore.AddSync(hook), nil
+}
+
+// 初始化控制台日志
+func InitLog2std(level string) {
+	logger, err := NewStdLogger(level)
+	if err != nil {
+		panic("[init]stdout日志初始化失败")
+	}
+	defIns = logger
+}
+
+// 初始化文件日志
+func InitLog2file(filename, level string) {
+	// 按天切割日志
+	logger, err := NewFileLogger(filename, level)
+	if err != nil {
+		panic("[init]文件日志初始化失败")
+	}
+	defIns = logger
+}

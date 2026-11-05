@@ -38,3 +38,6 @@ desktop.ini
 # 日志与临时文件
 *.log
 tmp/
+
+# master 合并追加：内含真实密钥的本地测试文件禁止入库（models/dao/slscal 等）
+**/var_test.go
