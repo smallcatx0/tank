@@ -4,6 +4,7 @@ import (
 	controller "serv_tpl/controller"
 	v1 "serv_tpl/controller/v1"
 	"serv_tpl/internal/global"
+	"serv_tpl/internal/httpmd"
 
 	"github.com/gin-gonic/gin"
 )
@@ -30,7 +31,7 @@ func RegisterHTTP(r *gin.Engine, ready func() bool) {
 }
 
 // registAdminShop min_tpl 内联 shop 示例路由，与 admin.go 的 registAdmin 重名，改名共存
-func registAdminShop(r *gin.Engine) {
+func registAdmin(r *gin.Engine) {
 	s := v1.Shop{}
 
 	shopRout := r.Group("/admin/shop").
@@ -40,4 +41,23 @@ func registAdminShop(r *gin.Engine) {
 
 	shopRout.POST("/create", s.Create)
 	shopRout.GET("/list", s.List)
+
+	userRout := r.Group("/user").Use(httpmd.JwtAuth())
+	u := v1.UserAdmin{}
+	userRout.GET("/list", u.List)
+}
+
+func registeApi(router *gin.Engine) {
+	root := router.Group("/v1")
+
+	userRout := root.Group("/user")
+	user := v1.User{}
+	userRout.POST("/regist", user.RegistByPhone)
+	userRout.POST("/login", user.LoginByPwd)
+	userRout.POST("/k-login", user.LoginByPhone)
+
+	userAuth := userRout.Use(httpmd.JwtAuth())
+	userAuth.GET("/info", user.Info)
+	userAuth.POST("/modpass", user.ModPass)
+	userAuth.POST("/modinfo", user.ModInfo)
 }
