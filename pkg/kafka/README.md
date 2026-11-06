@@ -83,24 +83,24 @@ if err := registry.Register(consumer); err != nil {
 
 ## 验证
 
-```powershell
+```bash
 go test ./pkg/kafka
 go test -race ./pkg/kafka
 go test ./pkg/kafka -run '^$' -bench . -benchmem
 
-$env:KAFKA_TEST_BROKERS = '127.0.0.1:9092' # 示例，替换为专用测试集群地址
+export KAFKA_TEST_BROKERS='127.0.0.1:9092' # 示例，替换为专用测试集群地址
 go test ./pkg/kafka -run TestIntegration -count=1 -timeout=150s
-Remove-Item Env:KAFKA_TEST_BROKERS
+unset KAFKA_TEST_BROKERS
 ```
 
 未设置环境变量时真实 Broker 测试会明确跳过。集成测试创建独立的 `gtank-d22-*` 主题与消费者组，结束后清理自己的测试数据；应只对测试集群运行。`BenchmarkConsumerRound` 使用内存提交替身，测量组件调度开销，不代表真实 Kafka 吞吐。
 
 ### 真实认证与网络故障专项
 
-```powershell
-$env:KAFKA_DOCKER_TESTS = '1'
+```bash
+export KAFKA_DOCKER_TESTS='1'
 go test ./pkg/kafka -run '^TestDockerAuthenticationAndNetworkFaults$' -count=1 -timeout=300s -v
-Remove-Item Env:KAFKA_DOCKER_TESTS
+unset KAFKA_DOCKER_TESTS
 ```
 
 需要可访问的本机 Docker daemon。测试自行创建独立 `apache/kafka:4.1.1` Broker，动态选择本机端口，生成短期 CA、服务端证书和随机测试凭据；通过真实协议代理制造连接中断、请求/响应丢失和心跳失联，并强制终止、重启自有 Broker。结束后清理自有容器及测试凭据，不读取或改动常驻 Kafka 配置。该套件也在自有 Broker 上运行常规集成回归，不需要设置 `KAFKA_TEST_BROKERS`。逐项结果见 [D22 验收结论](../../docs/history/D22-Kafka消费能力封装-design.md#验收结论)。
@@ -112,8 +112,8 @@ Remove-Item Env:KAFKA_DOCKER_TESTS
 
 先准备独立示例主题，从仓库根目录复制配置（已有配置不覆盖），再按目标环境修改 brokers、topics 与 group_id：
 
-```powershell
-if (!(Test-Path conf/kafka_worker.yaml)) { Copy-Item conf/kafka_worker.yaml.example conf/kafka_worker.yaml }
+```bash
+test -f conf/kafka_worker.yaml || cp conf/kafka_worker.yaml.example conf/kafka_worker.yaml
 # 编辑 conf/kafka_worker.yaml 后启动
 go run ./cmd/kafka_worker -config conf/kafka_worker.yaml
 ```

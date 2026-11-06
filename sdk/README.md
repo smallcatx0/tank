@@ -2,14 +2,43 @@
 
 模块：`serv_tpl/sdk`，Go 1.26.0。仅包含生成的 protobuf 消息及 gRPC 客户端/服务端接口，运行依赖为 gRPC 和 protobuf，不依赖服务端根模块、数据库或业务配置。生成代码保留工具英文注释。
 
-协议唯一来源为 [api/](../api/README.md)，服务端启动见 [业务接入指南第 6 步](../业务接入指南.md#6-开启并启动-api)。
+协议唯一来源为 [api/](../api/README.md)，服务端启动见 [业务接入指南](../业务接入指南.md#启动-api)。
+
+## 准备生成工具
+
+需要三个工具：`protoc` 编译协议，`protoc-gen-go` 生成消息类型，`protoc-gen-go-grpc` 生成客户端及服务端接口。版本以本仓库生成文件头为依据，固定使用 protoc 对应的 v33.0 发布包（生成文件头记录为 v6.33.0）、protoc-gen-go v1.36.12、protoc-gen-go-grpc v1.6.0。
+
+从 [Protobuf v33.0 官方发布页](https://github.com/protocolbuffers/protobuf/releases/tag/v33.0) 下载适合系统的 protoc 压缩包。Windows x64 使用对应 win64 包，解压后将包含 `protoc.exe` 的 `bin` 目录加入 PATH；保留配套 `include` 目录，引用标准协议时会用到。
+
+安装两个 Go 插件，并把安装目录加入当前终端的 PATH：
+
+```bash
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.12
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.0
+grpc_tools_bin="$(go env GOBIN)"
+if [ -z "$grpc_tools_bin" ]; then
+  grpc_tools_bin="$(go env GOPATH)/bin"
+fi
+# Git Bash 将 Windows Go 返回的路径转换为 Bash 路径。
+if command -v cygpath >/dev/null 2>&1; then
+  grpc_tools_bin="$(cygpath -u "$grpc_tools_bin")"
+fi
+export PATH="$grpc_tools_bin:$PATH"
+protoc --version
+protoc-gen-go --version
+protoc-gen-go-grpc --version
+```
+
+每条安装命令成功后再继续。PATH 调整只对当前 Bash 会话生效；长期使用可将设置写入 Bash 启动配置。工具安装方式参考 [gRPC Go 官方入门](https://grpc.io/docs/languages/go/quickstart/)，本仓库使用上述固定版本，不跟随 `latest` 自动升级。
+
+对应版本的实际输出为 `libprotoc 33.0`、`protoc-gen-go.exe v1.36.12`（Windows）及 `protoc-gen-go-grpc 1.6.0`；生成文件头中的 `protoc v6.33.0` 与这里的 `libprotoc 33.0` 属于同一版本，不需要另找名为 6.33.0 的编译器压缩包。修改用户 PATH 后应重新打开终端；仍继承旧环境的 IDE 需重启后再打开终端。
 
 ## 生成 SDK
 
-工具安装与固定版本见 [生成工具说明](../业务接入指南.md#1-准备生成工具)。仓库根用 PowerShell 5.1 及以上（`powershell`）或 PowerShell 7（`pwsh`）执行：
+工具安装与固定版本见 [生成工具说明](../业务接入指南.md#1-准备生成工具)，仓库根使用 Bash 执行：
 
-```powershell
-powershell -NoProfile -File scripts/generate-sdk.ps1
+```bash
+bash scripts/generate-sdk.sh
 go -C sdk mod tidy
 go -C sdk test ./...
 go -C sdk vet ./...
@@ -20,17 +49,11 @@ git diff --check
 git diff -- api sdk
 ```
 
-Linux、macOS 或 Git Bash 可将上述第一条命令替换为：
+生成脚本适用于 Linux、macOS、Git Bash 或 WSL，需使用 Bash 执行（不使用 `sh`）。三个生成工具须在当前环境 PATH 中；支持通过脚本绝对路径调用。后续 `go` 和 `git` 检查命令在仓库根执行。WSL 中需安装 Linux 版 Go 和生成工具。没有 Bash 环境时改用 `powershell -ExecutionPolicy Bypass -File scripts/generate-sdk.ps1`（执行策略为 Restricted 时必须显式 Bypass），两个脚本的校验与输出一致。
+
+每条命令成功后再继续。脚本校验工具版本并生成 api/ 下全部协议。单个协议的等价命令（仓库根执行）：
 
 ```bash
-bash scripts/generate-sdk.sh
-```
-
-Shell 入口要求 Bash（不使用 `sh`），三个生成工具须在当前环境 PATH 中；支持从其他目录通过脚本绝对路径调用。后续 `go` 和 `git` 检查命令相同，在仓库根目录执行。
-
-每条命令成功后再继续。两个脚本使用相同版本校验和生成参数，并生成 api/ 下全部协议。单个协议的等价命令（仓库根执行）：
-
-```powershell
 protoc --proto_path=. --go_out=sdk --go_opt=module=serv_tpl/sdk --go-grpc_out=sdk --go-grpc_opt=module=serv_tpl/sdk api/version/v1/version.proto
 ```
 
@@ -46,8 +69,9 @@ protoc --proto_path=. --go_out=sdk --go_opt=module=serv_tpl/sdk --go-grpc_out=sd
 2. 同步修改 `api/` 下所有协议的 `go_package`、`scripts/generate-sdk.*` 的 `module` 变量，以及根 go.mod 的 `require`/`replace`。
 3. 完成生成与双模块检查后，在已审核的提交上打子模块标签（必须带 `sdk/` 目录前缀，消费者版本号仍写 `v0.1.0`）：
 
-```powershell
-git tag -a sdk/v0.1.0 -m "Release Go RPC SDK v0.1.0" <已审核的提交SHA>
+```bash
+release_commit='替换为已审核的提交SHA'
+git tag -a sdk/v0.1.0 -m "Release Go RPC SDK v0.1.0" "$release_commit"
 git push origin refs/tags/sdk/v0.1.0
 ```
 
@@ -59,9 +83,9 @@ git push origin refs/tags/sdk/v0.1.0
 
 客户端只需 Go，无需 protoc。新建独立项目，并以本地 `replace` 指向本仓库 `sdk/`（换成你的检出路径）：
 
-```powershell
-New-Item -ItemType Directory rpc-client
-Set-Location rpc-client
+```bash
+mkdir -p rpc-client
+cd rpc-client
 go mod init example.com/rpc-client
 go mod edit '-require=serv_tpl/sdk@v0.0.0'
 go mod edit '-replace=serv_tpl/sdk=D:/code-my/tank/sdk'
@@ -70,6 +94,7 @@ go mod edit '-replace=serv_tpl/sdk=D:/code-my/tank/sdk'
 写入下面 main.go 后执行 `go mod tidy`。SDK 拆为独立仓库并发布后，改用 `go mod edit -dropreplace=serv_tpl/sdk` 加远程 `go get`；私有仓库需配置 Git 权限并将新模块路径加入 GOPRIVATE，凭据仍需单独配置。
 
 import 路径为 `serv_tpl/sdk/version/v1`，地址、凭据、超时和连接复用由客户端负责。
+
 ## 编写客户端
 
 在客户端根目录新建 `main.go`，完整内容如下：
@@ -137,7 +162,7 @@ func callVersion(parent context.Context, addr string, timeout time.Duration) err
 
 仍在客户端根目录执行：
 
-```powershell
+```bash
 go mod tidy
 go build ./...
 go run . -addr 127.0.0.1:9090 -timeout 3s
@@ -145,10 +170,10 @@ go run . -addr 127.0.0.1:9090 -timeout 3s
 
 也可以使用此示例客户端实现的环境变量配置地址：
 
-```powershell
-$env:GRPC_ADDR = '192.168.1.20:9090'
+```bash
+export GRPC_ADDR='192.168.1.20:9090'
 go run . -timeout 3s
-Remove-Item Env:GRPC_ADDR
+unset GRPC_ADDR
 ```
 
 显式传入 `-addr` 时覆盖环境变量。`GRPC_ADDR` 是上面客户端代码读取的变量，不是生成 SDK 自带的配置，也不会修改服务端配置。
@@ -172,7 +197,7 @@ Remove-Item Env:GRPC_ADDR
 
 ## 本仓库快速联调
 
-```powershell
+```bash
 go run ./test/grpc_version -addr 127.0.0.1:9090 -timeout 3s
 ```
 
@@ -184,7 +209,7 @@ go run ./test/grpc_version -addr 127.0.0.1:9090 -timeout 3s
 
 以 Go 项目 `example.com/rpc-client` 为例：将收到的文件复制到客户端 `api/version/v1/version.proto`，安装前述生成工具，在客户端模块根执行：
 
-```powershell
+```bash
 protoc --proto_path=. --go_out=. --go_opt=paths=source_relative '--go_opt=Mapi/version/v1/version.proto=example.com/rpc-client/api/version/v1;versionv1' --go-grpc_out=. --go-grpc_opt=paths=source_relative '--go-grpc_opt=Mapi/version/v1/version.proto=example.com/rpc-client/api/version/v1;versionv1' api/version/v1/version.proto
 go get google.golang.org/grpc@v1.85.0 google.golang.org/protobuf@v1.36.12
 ```

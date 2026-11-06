@@ -4,22 +4,22 @@ Go 服务脚手架，提供 HTTP API、可选 gRPC、MySQL/GORM、Redis、Kafka 
 
 ## 本地启动
 
-需要 Go 1.26（见 [go.mod](go.mod)）、MySQL 和 Redis。以下命令在仓库根目录使用 POSIX shell（如 sh、bash）执行：
+需要 Go 1.26（见 [go.mod](go.mod)）、MySQL 和 Redis。以下命令在仓库根目录使用 Bash执行：
 
-```shell
+```bash
 # conf/app.yaml 不存在时复制；已有配置请直接编辑，不要覆盖
 test -f conf/app.yaml || cp conf/app.yaml.example conf/app.yaml
 ```
 
 编辑 MySQL DSN 与 Redis 地址/密码，确保数据库存在。服务不自动建库建表。
 
-```shell
+```bash
 go run ./cmd/api -config conf/app.yaml
 ```
 
 API 默认监听 HTTP 8080，gRPC 默认关闭。在另一个终端检查：
 
-```shell
+```bash
 curl -fsS http://localhost:8080/healthz
 curl -fsS http://localhost:8080/ready
 curl -fsS http://localhost:8080/
@@ -29,7 +29,7 @@ curl -fsS http://localhost:8080/
 
 运行任务 worker（RabbitMQ 任务，不消费 Kafka）：
 
-```shell
+```bash
 test -f conf/worker.yaml || cp conf/worker.yaml.example conf/worker.yaml
 # 编辑 conf/worker.yaml 后启动
 go run ./cmd/sth_worker -config conf/worker.yaml
@@ -59,7 +59,7 @@ Kafka worker 只装配日志、可选心跳与消费者，不连接 MySQL/Redis�
 
 ## 构建与检查
 
-```shell
+```bash
 go build ./cmd/...
 go test ./...
 go vet ./...
@@ -73,7 +73,7 @@ go vet ./...
 
 [Dockerfile](Dockerfile) 使用 Go 多阶段构建，固定构建 API。后续需要构建 worker 镜像时，新增独立 Dockerfile。运行镜像为 Alpine 3.24，提供 `/bin/sh` 和基础命令，包含静态程序和时区数据，使用 UID/GID 65532；不包含配置，不额外安装或复制 CA 证书。
 
-```shell
+```bash
 docker build -t serv-tpl:api .
 ```
 
@@ -81,7 +81,7 @@ docker build -t serv-tpl:api .
 
 准备宿主机 `conf/app.yaml`，MySQL/Redis 地址需能从容器访问：同一 Docker 网络使用服务名，Docker Desktop 可用 `host.docker.internal` 访问宿主机。容器内 `localhost` 指容器自身。
 
-```shell
+```bash
 appConfig="$(pwd)/conf/app.yaml"
 docker run -d --name serv-tpl-api --stop-timeout 35 -p 8080:8080 --mount "type=bind,source=$appConfig,target=/app/conf/app.yaml,readonly" serv-tpl:api
 docker logs serv-tpl-api

@@ -8,7 +8,7 @@
 
 从仓库根目录运行：
 
-```powershell
+```bash
 go run ./test/kafka_producer -env-file .local/.env.dev -message "hello kafka" -key "example-key" -count 3
 ```
 
@@ -35,7 +35,7 @@ Ctrl+C/SIGTERM 取消发送并关闭客户端，正常退出；未确认消息�
 
 持续发送（首条立即发送，随后每次确认成功后等待 1 秒，不受 15 秒总时长限制）：
 
-```powershell
+```bash
 go run ./test/kafka_producer -env-file .local/.env.dev -continuous -interval 1s -message "hello kafka" -key "manual-test"
 ```
 
@@ -43,8 +43,8 @@ go run ./test/kafka_producer -env-file .local/.env.dev -continuous -interval 1s 
 
 手工联调时，复制并修改 kafka_worker 配置，确保 brokers/topics 与生产者一致，并使用独立测试 group_id：
 
-```powershell
-if (!(Test-Path conf/kafka_worker.yaml)) { Copy-Item conf/kafka_worker.yaml.example conf/kafka_worker.yaml }
+```bash
+test -f conf/kafka_worker.yaml || cp conf/kafka_worker.yaml.example conf/kafka_worker.yaml
 # 编辑 conf/kafka_worker.yaml 后，在另一个终端启动：
 go run ./cmd/kafka_worker -config conf/kafka_worker.yaml
 ```
@@ -55,7 +55,7 @@ worker 示例只记录消息位置并提交。业务接入和关闭行为见 [Ka
 
 明确设置 KAFKA_TEST_BROKERS 为可访问的专用测试集群地址后运行：
 
-```powershell
+```bash
 go test ./test/kafka_producer -run '^TestIntegrationProducerConsumer$' -count=1 -timeout=90s -v
 ```
 
@@ -70,7 +70,7 @@ go test ./test/kafka_producer -run '^TestIntegrationProducerConsumer$' -count=1 
 3. 同组重启后发送第 4 条消息，确认从新位点继续消费。
 4. 清理测试资源并检查 Kafka 错误码。
 
-```powershell
+```bash
 go test ./test/kafka_producer -count=1
 go vet ./test/kafka_producer
 go build ./test/kafka_producer
