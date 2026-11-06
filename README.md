@@ -27,13 +27,15 @@ curl -fsS http://localhost:8080/
 
 `/healthz` 表示进程存活，`/ready` 表示 HTTP 生命周期就绪，不持续探测下游。HTTP 和 gRPC 业务接入、协议生成与调用步骤见 [业务接入指南](业务接入指南.md)。
 
-运行 worker：
+运行 Kafka 示例 worker：先复制配置模板，按目标测试环境修改 brokers、topics 和 group_id，并预先创建主题。
 
 ```shell
-go run ./cmd/sth_worker -config conf/app.yaml
+test -f conf/worker.yaml || cp conf/worker.yaml.example conf/worker.yaml
+# 编辑 conf/worker.yaml 后启动
+go run ./cmd/sth_worker -config conf/worker.yaml
 ```
 
-worker 只初始化日志、可选系统心跳并等待退出，不启动 HTTP/gRPC，不连接 MySQL/Redis；在该入口接入实际任务。
+worker 初始化日志、可选系统心跳和可选 Kafka 消费者，不启动 HTTP/gRPC，不连接 MySQL/Redis。kafka.enable 默认 false，worker 示例模板显式开启。示例回调仅记录消息位置，成功后提交位点；请使用独立测试主题与消费者组。消费失败触发非零退出，收到退出信号后先排空消费者、最后关闭日志。配置与业务回调替换方式见 [Kafka 组件说明](pkg/kafka/README.md#worker-入口装配)。
 
 ## 配置与日志
 
@@ -55,7 +57,7 @@ go vet ./...
 
 完整竞态和信号退出验证在具备 C 编译器的 Linux 环境执行 `go test -race ./...`；安装 Staticcheck 后执行 `staticcheck ./...`。
 
-存储/入口集成测试需设置专用隔离环境变量 `D02_TEST_MYSQL_DSN`、`D02_TEST_MYSQL_ADDR`、`D02_TEST_REDIS_ADDR`，不得指向业务库。未配置时相关用例跳过。测试要求见 [项目规范](项目规范.md)。
+存储/入口集成测试需设置专用隔离环境变量 `D02_TEST_MYSQL_DSN`、`D02_TEST_MYSQL_ADDR`、`D02_TEST_REDIS_ADDR`，不得指向业务库。未配置时相关用例跳过。测试要求见 [项目规范](项目规范.md)。常规测试可复用常驻测试依赖，但必须隔离并清理本次测试数据；认证、断网和重启等故障专项仍使用独立临时实例。
 
 ## 容器构建与运行
 

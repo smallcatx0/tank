@@ -1,1 +1,10 @@
 # 计划与想法
+
+- [x] 清理长期文档中的本机信息，已完成（[D27](docs/history/D27-长期文档与本地测试环境分离-design.md)）。
+- [x] 本地 Docker 测试环境记录与复用，已完成（[D27](docs/history/D27-长期文档与本地测试环境分离-design.md)）。
+
+- [x] [D28 Kafka生产者与生产消费集成测试](docs/history/D28-Kafka生产者与生产消费集成测试-design.md)
+
+- [x] [D29 Kafka生产者持续发送](docs/history/D29-Kafka生产者持续发送-design.md)
+
+- [x] [D26 Worker 装配 Kafka 消费](docs/history/D26-Worker装配Kafka消费-design.md)（验收通过）。

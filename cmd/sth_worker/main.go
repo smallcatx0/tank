@@ -5,6 +5,7 @@ import (
 	"os"
 	"serv_tpl/internal/bootstrap"
 	"serv_tpl/internal/global"
+	"serv_tpl/internal/task"
 )
 
 func main() {
@@ -15,17 +16,22 @@ func main() {
 	}
 	global.MustInitAppConf(global.Param.C)
 	cfg := global.MustLoadWorkerLifecycleConfig(global.AppConf)
+	kafkaCfg, err := global.LoadKafkaConfig(global.AppConf, cfg.Shutdown)
+	if err != nil {
+		panic(err)
+	}
 
 	// 步骤2：初始化日志，失败直接 panic。
 	logSync := bootstrap.MustInitLog()
 
-	// 步骤3：启动可选心跳，后台任务按业务需要接入。
+	// 步骤3：启动可选心跳及 Kafka 示例消费者。
 	bootstrap.Heartbeat(cfg.Heartbeat, cfg.HeartbeatInterval)
 
-	// TODO 启动worker后台任务
+	consumer := bootstrap.MustKafkaWorker(kafkaCfg, task.LogKafkaMessage)
 
 	// 步骤4：等待退出，日志最后关闭。
-	os.Exit(bootstrap.WaitingExit(cfg.Shutdown, nil, nil,
+	os.Exit(bootstrap.WaitingWorkerExit(cfg.Shutdown, consumer.Done(),
+		bootstrap.Cleanup{Name: "kafka", Stop: consumer.Shutdown},
 		bootstrap.Cleanup{Name: "log", Stop: logSync},
 	))
 }

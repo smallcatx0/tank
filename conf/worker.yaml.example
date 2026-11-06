@@ -1,0 +1,20 @@
+# 本机 Kafka 装配示例：回调只记录位置并提交，请勿填写真实业务主题。
+name: sth-worker
+env: dev
+shutdown_timeout: 45 # 秒，包含 Kafka 排空及日志关闭
+
+log:
+  type: stdout
+  level: INFO
+
+metrics:
+  enable: false
+
+kafka:
+  enable: true
+  brokers: ["127.0.0.1:19092"]
+  group_id: sth-worker-example
+  client_id: sth-worker
+  topics: ["example-events"]
+  start_offset: earliest # 仅没有有效提交位点时使用，必须显式指定
+  drain_timeout: 40s
