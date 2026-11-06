@@ -1,14 +1,10 @@
 # Kafka 消费组件
 
-`pkg/kafka` 提供单条回调、业务重试、逐条同步提交与优雅关闭。设计和验收边界见 [D22](../../docs/history/D22-Kafka消费能力封装-design.md)。现有 HTTP/worker 入口没有自动启用 Kafka。
+`pkg/kafka` 提供单条回调、业务重试、逐条同步提交与优雅关闭。设计和验收边界见 [D22](../../docs/history/D22-Kafka消费能力封装-design.md)。HTTP 入口不启用 Kafka；worker 的装配示例见下文。
 
 ## 最小运行示例
 
-先在本机 Kafka 中创建示例主题（组件不会自动创建主题）：
-
-```powershell
-docker exec gtank-kafka-4.1.1 /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19092 --create --if-not-exists --topic example-events --partitions 1 --replication-factor 1
-```
+先在目标测试集群中创建 example-events 主题（组件不会自动创建主题）。下面的 broker 地址仅为示例，需替换为应用可访问的地址。
 
 将下面程序保存到仓库内的独立目录，再使用 `go run` 运行。示例持续消费，收到 Ctrl+C 后排空在途消息。
 
@@ -30,7 +26,7 @@ import (
 
 func main() {
     o := kafka.DefaultOptions()
-    o.Brokers = []string{"127.0.0.1:19092"}
+    o.Brokers = []string{"127.0.0.1:9092"} // 按目标环境修改
     o.GroupID = "example-worker"
     o.Topics = []string{"example-events"}
     o.StartOffset = "earliest"
@@ -85,25 +81,6 @@ if err := registry.Register(consumer); err != nil {
 
 同一注册器内多个实例应使用不同 ClientID。需要移除指标时由注册者调用 `registry.Unregister(consumer)`。业务回调可从 Run 传入的 context 获取业务值；组件不会解析消息正文来推断 trace_id 或业务 ID。
 
-## 本机持久 Kafka
-
-- 容器：`gtank-kafka-4.1.1`，镜像：`apache/kafka:4.1.1`。
-- Compose 文件：`D:\docker\kafka_4.1.1\compose.yaml`，项目名 `gtank-kafka`，服务名 `kafka`。
-- 宿主机连接地址：`127.0.0.1:19092`，PLAINTEXT，仅绑定本机。
-- 命名数据卷：`gtank-kafka-4.1.1-data`，挂载到 `/var/lib/kafka/data`。
-- 数据卷声明为 external，必须预先存在；Compose 不负责创建或删除该卷。
-- 自动重启策略：`unless-stopped`；手动停止后须手动启动。
-- 单节点 KRaft，Broker/Controller 合并；事务与 offset 内部主题副本数均为 1。
-
-```powershell
-docker compose -f D:\docker\kafka_4.1.1\compose.yaml up -d --wait
-docker compose -f D:\docker\kafka_4.1.1\compose.yaml stop
-docker compose -f D:\docker\kafka_4.1.1\compose.yaml logs --tail 100 kafka
-docker compose -f D:\docker\kafka_4.1.1\compose.yaml ps
-```
-
-该监听地址面向宿主机程序，不适用于其他容器直接连接；其他容器接入需另行配置可达的 advertised listener。验证不会删除该容器或数据卷。
-
 ## 验证
 
 ```powershell
@@ -111,7 +88,7 @@ go test ./pkg/kafka
 go test -race ./pkg/kafka
 go test ./pkg/kafka -run '^$' -bench . -benchmem
 
-$env:KAFKA_TEST_BROKERS = '127.0.0.1:19092'
+$env:KAFKA_TEST_BROKERS = '127.0.0.1:9092' # 示例，替换为专用测试集群地址
 go test ./pkg/kafka -run TestIntegration -count=1 -timeout=150s
 Remove-Item Env:KAFKA_TEST_BROKERS
 ```
@@ -127,3 +104,27 @@ Remove-Item Env:KAFKA_DOCKER_TESTS
 ```
 
 需要可访问的本机 Docker daemon。测试自行创建独立 `apache/kafka:4.1.1` Broker，动态选择本机端口，生成短期 CA、服务端证书和随机测试凭据；通过真实协议代理制造连接中断、请求/响应丢失和心跳失联，并强制终止、重启自有 Broker。结束后清理自有容器及测试凭据，不读取或改动常驻 Kafka 配置。该套件也在自有 Broker 上运行常规集成回归，不需要设置 `KAFKA_TEST_BROKERS`。逐项结果见 [D22 验收结论](../../docs/history/D22-Kafka消费能力封装-design.md#验收结论)。
+
+## worker 入口装配
+
+`cmd/kafka_worker` 是纯 Kafka 消费入口：只装配日志、可选心跳与消费者，不启动 HTTP/gRPC，也不连接 MySQL/Redis。
+`cmd/sth_worker` 是任务入口（RabbitMQ / 数据库任务），不装配 Kafka，两者互不影响。
+
+先准备独立示例主题，从仓库根目录复制配置（已有配置不覆盖），再按目标环境修改 brokers、topics 与 group_id：
+
+```powershell
+if (!(Test-Path conf/kafka_worker.yaml)) { Copy-Item conf/kafka_worker.yaml.example conf/kafka_worker.yaml }
+# 编辑 conf/kafka_worker.yaml 后启动
+go run ./cmd/kafka_worker -config conf/kafka_worker.yaml
+```
+
+kafka.enable 默认 false；kafka_worker.yaml.example 显式开启 Kafka，其中地址仅为示例。回调位于 internal/task/kafka.go，
+只记录消息位置，成功后提交位点，请仅使用示例主题。替换为真实处理器时应在返回 nil 前完成业务并保证幂等。
+消费失败停止进程并返回非零退出码；Ctrl+C/SIGTERM 先排空消费者，最后关闭日志。
+排空预算默认 40s，总退出预算示例为 45s；二次信号或总超时强退。
+brokers、topics、group_id、client_id 在配置加载阶段即校验，缺失时不会走到构造消费者。
+启动日志不代表 Broker 已就绪，主题需预先创建。本次未新增 Prometheus HTTP 端口。
+
+业务回调需要数据库时，应在该入口自行装配 MySQL/Redis，并在消费者关闭后再释放连接。
+
+可运行的生产者及生产消费集成测试见 [生产者测试程序](../../test/kafka_producer/README.md)。
