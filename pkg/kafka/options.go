@@ -117,6 +117,11 @@ func DefaultOptions() Options {
 	}
 }
 
+// Validate 供入口在装配消费者前校验必填项与非零取值，使配置错误在连接存储之前暴露。
+func Validate(o Options) error {
+	return o.validate()
+}
+
 func (o Options) validate() error {
 	if len(o.Brokers) == 0 || len(o.Topics) == 0 || strings.TrimSpace(o.GroupID) == "" || strings.TrimSpace(o.ClientID) == "" {
 		return fmt.Errorf("kafka: Brokers、Topics、GroupID、ClientID 必须非空")

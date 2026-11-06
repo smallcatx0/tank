@@ -22,6 +22,15 @@ type Cleanup struct {
 // 未启动的 HTTP/gRPC 服务传 nil 通道，对应 select 分支不参与等待。
 // 不接收启动回调、不恢复启动 panic，也不回滚启动资源。
 func WaitingExit(timeout time.Duration, httpDone, grpcDone <-chan error, steps ...Cleanup) int {
+	return waitingExit(timeout, httpDone, grpcDone, nil, steps...)
+}
+
+// WaitingWorkerExit 监听后台消费者退出，并复用总退出期限和二次信号强退机制。
+func WaitingWorkerExit(timeout time.Duration, workerDone <-chan error, steps ...Cleanup) int {
+	return waitingExit(timeout, nil, nil, workerDone, steps...)
+}
+
+func waitingExit(timeout time.Duration, httpDone, grpcDone, workerDone <-chan error, steps ...Cleanup) int {
 	signals := make(chan os.Signal, 2)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
 	defer signal.Stop(signals)
@@ -31,6 +40,10 @@ func WaitingExit(timeout time.Duration, httpDone, grpcDone <-chan error, steps .
 	case failure = <-httpDone:
 		if failure == nil {
 			failure = errors.New("HTTP 意外停止")
+		}
+	case failure = <-workerDone:
+		if failure == nil {
+			failure = errors.New("Kafka worker 意外停止")
 		}
 	case failure = <-grpcDone:
 		if failure == nil {
