@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	versionv1 "serv_tpl/sdk/version/v1"
 	"serv_tpl/internal/global"
 	"serv_tpl/routes"
+	versionv1 "serv_tpl/sdk/version/v1"
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"

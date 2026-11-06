@@ -1,8 +1,8 @@
 package routes
 
 import (
-	versionv1 "serv_tpl/sdk/version/v1"
 	"serv_tpl/controller/rpc"
+	versionv1 "serv_tpl/sdk/version/v1"
 
 	"google.golang.org/grpc"
 )
