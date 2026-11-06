@@ -131,7 +131,7 @@ const file_api_version_v1_version_proto_rawDesc = "" +
 	"\x04desc\x18\x02 \x01(\tR\x04desc\x12\x18\n" +
 	"\aversion\x18\x03 \x01(\tR\aversion2Q\n" +
 	"\x0eVersionService\x12?\n" +
-	"\aVersion\x12\x1a.version.v1.VersionRequest\x1a\x18.version.v1.VersionReplyB#Z!serv_tpl/api/version/v1;versionv1b\x06proto3"
+	"\aVersion\x12\x1a.version.v1.VersionRequest\x1a\x18.version.v1.VersionReplyB#Z!serv_tpl/sdk/version/v1;versionv1b\x06proto3"
 
 var (
 	file_api_version_v1_version_proto_rawDescOnce sync.Once

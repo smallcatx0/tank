@@ -3,6 +3,7 @@ WORKDIR /src
 ARG GOPROXY=https://proxy.golang.org,direct
 ENV GOPROXY=${GOPROXY}
 COPY go.mod go.sum ./
+COPY sdk/go.mod sdk/go.sum ./sdk/
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -o /out/service ./cmd/api \

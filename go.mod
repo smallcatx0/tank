@@ -4,20 +4,30 @@ go 1.26.0
 
 require (
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
+	github.com/prometheus/client_golang v1.23.2
 	github.com/shirou/gopsutil/v3 v3.20.10
 	github.com/stretchr/testify v1.12.1
+	github.com/twmb/franz-go v1.22.2
+	github.com/twmb/franz-go/pkg/kmsg v1.15.0
 	go.uber.org/zap v1.28.0
+	golang.org/x/sync v0.24.0
 )
 
 require (
+	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-kit/kit v0.10.0 // indirect
 	github.com/go-logfmt/logfmt v0.5.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/klauspost/compress v1.18.7 // indirect
+	github.com/klauspost/compress v1.20.3 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
+	github.com/pierrec/lz4/v4 v4.1.33 // indirect
+	github.com/prometheus/client_model v0.6.2 // indirect
+	github.com/prometheus/common v0.66.1 // indirect
+	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/richardlehane/mscfb v1.0.8 // indirect
 	github.com/richardlehane/msoleps v1.0.6 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
@@ -25,6 +35,7 @@ require (
 	github.com/tiendc/go-deepcopy v1.7.2 // indirect
 	github.com/xuri/efp v0.0.2 // indirect
 	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
+	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 )
 
@@ -103,4 +114,7 @@ require (
 	go.uber.org/multierr v1.10.0 // indirect
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/gorm v1.31.2
+	serv_tpl/sdk v0.0.0
 )
+
+replace serv_tpl/sdk => ./sdk

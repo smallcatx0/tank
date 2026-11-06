@@ -1,6 +1,6 @@
 # serv_tpl
 
-Go 服务脚手架，提供 HTTP API、可选 gRPC、MySQL/GORM、Redis、zap 日志和进程退出管理。
+Go 服务脚手架，提供 HTTP API、可选 gRPC、MySQL/GORM、Redis、Kafka 消费封装、zap 日志和进程退出管理。
 
 ## 本地启动
 
@@ -25,7 +25,7 @@ curl -fsS http://localhost:8080/ready
 curl -fsS http://localhost:8080/
 ```
 
-`/healthz` 表示进程存活，`/ready` 表示 HTTP 生命周期就绪，不持续探测下游。HTTP 和 gRPC 业务接入、协议生成与调用步骤见 [业务接入指南](业务接入指南.md)。
+`/healthz` 表示进程存活，`/ready` 表示 HTTP 生命周期就绪，不持续探测下游。HTTP 和 gRPC 业务接入、协议生成与调用步骤见 [业务接入指南](业务接入指南.md)，独立 SDK 的生成与接入见 [SDK 说明](sdk/README.md)。
 
 运行 worker：
 
@@ -88,10 +88,10 @@ docker stop --timeout 35 serv-tpl-api
 | --- | --- |
 | `cmd/` | API、worker 入口装配 |
 | `routes/`、`controller/` | 路由注册、HTTP/RPC 业务处理 |
-| `api/` | protobuf 契约与生成代码 |
+| `api/`、`sdk/` | 协议契约（`.proto`）与独立 SDK 子模块（生成的 Go 消息及 RPC 接口） |
 | `models/dao/`、`models/dao/schema/` | 连接管理、GORM 模型及数据方法 |
 | `models/valid/` | HTTP 参数绑定与校验 |
 | `internal/` | 启动、配置、响应、中间件、请求 context |
-| `pkg/` | 日志、脱敏等通用工具 |
+| `pkg/` | 日志、脱敏、Kafka 封装等通用工具 |
 
-复制为新服务后更新模块名、Go import、`.proto` 的 `go_package` 并重新生成协议；修改服务信息和连接地址，按需裁剪业务与组件。开发流程见 [AGENTS.md](AGENTS.md)，现状见 [curr.md](curr.md)，计划见 [plan.md](plan.md)。
+复制为新服务后更新模块名、Go import、`.proto` 的 `go_package`、`sdk/go.mod` 与生成脚本中的 SDK 模块名，并重新生成协议；修改服务信息和连接地址，按需裁剪业务与组件。开发流程见 [AGENTS.md](AGENTS.md)，现状见 [curr.md](curr.md)，计划见 [plan.md](plan.md)。

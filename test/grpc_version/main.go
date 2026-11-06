@@ -1,4 +1,4 @@
-// Command grpc_version 查询 API 的版本信息，以 JSON 输出结果。
+// Command grpc_version 查询 API 版本，支持参数及环境变量配置地址。
 package main
 
 import (
@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	versionv1 "serv_tpl/api/version/v1"
+	versionv1 "serv_tpl/sdk/version/v1"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -16,37 +16,42 @@ import (
 )
 
 func main() {
-	// 步骤1：读取客户端参数，拒绝没有有效期限的调用。
-	addr := flag.String("addr", "127.0.0.1:9090", "gRPC 服务地址（明文测试连接）")
-	timeout := flag.Duration("timeout", 3*time.Second, "RPC 总期限，如 3s")
+	// 步骤1：读取地址，优先级为命令行参数 > 环境变量 > 默认地址。
+	defaultAddr := os.Getenv("GRPC_ADDR")
+	if defaultAddr == "" {
+		defaultAddr = "127.0.0.1:9090"
+	}
+	addr := flag.String("addr", defaultAddr, "gRPC 服务端 host:port")
+	timeout := flag.Duration("timeout", 3*time.Second, "RPC 总期限")
 	flag.Parse()
-	if *timeout <= 0 {
-		fmt.Fprintln(os.Stderr, "timeout 必须大于 0")
+	if err := callVersion(context.Background(), *addr, *timeout); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	// 步骤2：创建客户端并在总期限内执行 RPC，建连时间也计入期限。
-	conn, err := grpc.NewClient(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+}
+
+func callVersion(parent context.Context, addr string, timeout time.Duration) error {
+	if addr == "" || timeout <= 0 {
+		return fmt.Errorf("addr 不能为空，timeout 必须大于 0")
+	}
+	// 步骤2：创建与当前明文服务端匹配的连接，函数退出时释放。
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "创建 gRPC 客户端失败:", err)
-		os.Exit(1)
+		return fmt.Errorf("创建 gRPC 客户端: %w", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
-	resp, err := versionv1.NewVersionServiceClient(conn).Version(ctx, &versionv1.VersionRequest{})
-	// 步骤3：os.Exit 不执行 defer，在判断退出码之前显式释放连接和计时器。
-	cancel()
-	closeErr := conn.Close()
+	defer conn.Close()
+	// 步骤3：连接等待和实际调用共用一个明确的总期限。
+	ctx, cancel := context.WithTimeout(parent, timeout)
+	defer cancel()
+	client := versionv1.NewVersionServiceClient(conn)
+	reply, err := client.Version(ctx, &versionv1.VersionRequest{})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Version 失败:", err)
-		os.Exit(1)
+		return fmt.Errorf("调用 Version: %w", err)
 	}
-	if closeErr != nil {
-		fmt.Fprintln(os.Stderr, "关闭 gRPC 客户端失败:", closeErr)
-		os.Exit(1)
-	}
-	data, err := (protojson.MarshalOptions{EmitUnpopulated: true}).Marshal(resp)
+	data, err := (protojson.MarshalOptions{EmitUnpopulated: true}).Marshal(reply)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "版本信息编码失败:", err)
-		os.Exit(1)
+		return fmt.Errorf("编码响应: %w", err)
 	}
 	fmt.Println(string(data))
+	return nil
 }
