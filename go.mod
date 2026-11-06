@@ -114,4 +114,7 @@ require (
 	go.uber.org/multierr v1.10.0 // indirect
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/gorm v1.31.2
+	serv_tpl/sdk v0.0.0
 )
+
+replace serv_tpl/sdk => ./sdk

@@ -4,7 +4,7 @@ package rpc
 import (
 	"context"
 
-	versionv1 "serv_tpl/api/version/v1"
+	versionv1 "serv_tpl/sdk/version/v1"
 	"serv_tpl/internal/global"
 
 	"google.golang.org/grpc/status"
