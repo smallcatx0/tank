@@ -41,6 +41,8 @@
 
 ## 常用命令
 
+文档中的命令示例统一使用 Bash 语法及 `bash` 代码块，HTTP API 调用统一使用 `curl`。复制文件、设置环境变量、路径和续行也必须使用 Bash 写法，不使用 PowerShell 命令示例。Windows 用户使用 Git Bash 或 WSL 执行。
+
 ```bash
 # 构建全部入口
 go build ./cmd/...
@@ -57,7 +59,8 @@ go vet ./...
 staticcheck ./...
 
 # 基准测试（热点路径包按实际替换）
-go test -bench . -benchmem ./<热点模块包路径>/...
+hotspot_package='./pkg/kafka'
+go test -bench . -benchmem "$hotspot_package/..."
 ```
 
 注：`docs/`、`sql/` 不参与构建与检查。
