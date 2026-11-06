@@ -1,4 +1,3 @@
-package kafkaworker
 package main
 
 import (
