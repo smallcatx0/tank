@@ -15,10 +15,13 @@ import (
 // RequestIDHeader 是调用方传入请求标识的 HTTP 请求头名称。
 const RequestIDHeader = "x-b3-traceid"
 
-// Trace 校验 B3 标识并写入 Gin 和标准 context；非法或缺失时生成新标识。
+// Trace 优先使用有效追踪上下文，否则校验 B3；同步 Gin、响应头及耗时起点。
 func Trace(c *gin.Context) {
 	// 步骤1：在业务处理及错误恢复之前写入本次请求标识。
-	requestID := c.GetHeader(RequestIDHeader)
+	requestID := requestctx.TraceID(c.Request.Context())
+	if requestID == "" {
+		requestID = c.GetHeader(RequestIDHeader)
+	}
 	if !validTraceID(requestID) {
 		requestID = uuid.NewV4().String()
 		requestID = strings.ReplaceAll(requestID, "-", "")

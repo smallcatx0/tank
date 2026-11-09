@@ -7,8 +7,12 @@
 
 - 提供 [Kafka 生产者及生产消费集成测试](test/kafka_producer/README.md)，支持显式参数、env 文件配置及带间隔的持续生产。
 
+- API/worker 支持独立开关的 Prometheus 与 OpenTelemetry，默认关闭；配置、业务调用与部署验证见 [观测接入](internal/telemetry/README.md)。
+
 # 已知问题
 
 - 独立 SDK 尚未发布远程版本。
 
 # 下一步
+
+- 部署环境验证 Prometheus 抓取和追踪后端检索，步骤见 [观测接入](internal/telemetry/README.md)。

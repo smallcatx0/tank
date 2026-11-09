@@ -28,7 +28,7 @@ func startTestGRPC(t *testing.T, drain time.Duration) (*GRPCService, healthpb.He
 	t.Helper()
 	s := MustGrpcServ(global.LifecycleConfig{GRPC: global.GRPCConfig{
 		Enabled: true, Address: "127.0.0.1:0", Drain: drain, ConnectionTimeout: time.Second,
-	}})
+	}}, closedRuntime(t))
 	t.Cleanup(func() { _ = s.Shutdown(context.Background()) })
 	conn, err := grpc.NewClient(s.listener.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
@@ -66,7 +66,7 @@ func TestGRPCVersionMatchesHTTP(t *testing.T) {
 }
 
 func TestGRPCDisabledAndListenFailure(t *testing.T) {
-	s := MustGrpcServ(global.LifecycleConfig{})
+	s := MustGrpcServ(global.LifecycleConfig{}, closedRuntime(t))
 	require.Nil(t, s)
 	require.Nil(t, s.Done())
 	require.NoError(t, s.Shutdown(context.Background()))
@@ -74,7 +74,7 @@ func TestGRPCDisabledAndListenFailure(t *testing.T) {
 	require.NoError(t, err)
 	defer ln.Close()
 	require.PanicsWithValue(t, "gRPC 监听失败", func() {
-		MustGrpcServ(global.LifecycleConfig{GRPC: global.GRPCConfig{Enabled: true, Address: ln.Addr().String()}})
+		MustGrpcServ(global.LifecycleConfig{GRPC: global.GRPCConfig{Enabled: true, Address: ln.Addr().String()}}, closedRuntime(t))
 	})
 }
 
@@ -158,12 +158,16 @@ func TestGRPCRecovery(t *testing.T) {
 	require.Nil(t, reply)
 	require.Equal(t, codes.Internal, status.Code(err))
 	require.NotContains(t, err.Error(), "secret")
-	err = recoverStreamRPC(nil, nil, &grpc.StreamServerInfo{FullMethod: "/test/watch"}, func(any, grpc.ServerStream) error { panic("secret") })
+	err = recoverStreamRPC(nil, contextTestStream{}, &grpc.StreamServerInfo{FullMethod: "/test/watch"}, func(any, grpc.ServerStream) error { panic("secret") })
 	require.Equal(t, codes.Internal, status.Code(err))
 	require.NotContains(t, err.Error(), "secret")
 	want := errors.New("business error")
 	_, err = recoverUnaryRPC(context.Background(), nil, &grpc.UnaryServerInfo{}, func(context.Context, any) (any, error) { return nil, want })
 	require.ErrorIs(t, err, want)
-	err = recoverStreamRPC(nil, nil, &grpc.StreamServerInfo{}, func(any, grpc.ServerStream) error { return want })
+	err = recoverStreamRPC(nil, contextTestStream{}, &grpc.StreamServerInfo{}, func(any, grpc.ServerStream) error { return want })
 	require.ErrorIs(t, err, want)
 }
+
+type contextTestStream struct{ grpc.ServerStream }
+
+func (contextTestStream) Context() context.Context { return context.Background() }

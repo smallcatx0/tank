@@ -1,5 +1,7 @@
 # 计划与想法
 
+- [x] [D32 Prometheus与链路追踪接入](docs/history/D32-Prometheus与链路追踪接入-design.md)（代码验收通过；部署验证边界见设计文档）。
+
 - [x] [D31 文档命令统一 Bash](docs/history/D31-文档命令统一Bash-design.md)（文档检查通过）。
 
 - [x] [D30 业务接入指南精简](docs/history/D30-业务接入指南精简-design.md)（文档检查通过）。

@@ -119,6 +119,6 @@ kafka.enable 默认 false；worker.yaml.example 显式开启 Kafka，其中地�
 只记录消息位置，成功后提交位点，请仅使用示例主题。替换为真实处理器时应在返回 nil 前完成业务并保证幂等。
 消费失败停止进程并返回非零退出码；Ctrl+C/SIGTERM 先排空消费者，最后关闭日志。
 排空预算默认 40s，总退出预算示例为 45s；二次信号或总超时强退。
-启动日志不代表 Broker 已就绪，主题需预先创建。本次未新增 Prometheus HTTP 端口。
+启动日志不代表 Broker 已就绪，主题需预先创建。worker 可通过 `observability.metrics.enable` 启用独立监控 HTTP，并在 Run 前注册本 Collector；追踪由内部包装层处理，组件保持独立。配置与验证见 [观测接入](../../internal/telemetry/README.md)。
 
 可运行的生产者及生产消费集成测试见 [生产者测试程序](../../test/kafka_producer/README.md)。

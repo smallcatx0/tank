@@ -3,6 +3,7 @@ package requestctx
 
 import (
 	"context"
+	"go.opentelemetry.io/otel/trace"
 	"time"
 )
 
@@ -19,6 +20,9 @@ func WithTrace(ctx context.Context, id string) context.Context {
 
 // TraceID 读取请求标识；非请求任务返回空字符串。
 func TraceID(ctx context.Context) string {
+	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
+		return sc.TraceID().String()
+	}
 	m, _ := ctx.Value(key{}).(metadata)
 	return m.id
 }
@@ -30,4 +34,13 @@ func LatencyMS(ctx context.Context) float64 {
 		return 0
 	}
 	return float64(time.Since(m.started)) / float64(time.Millisecond)
+}
+
+// SpanID 仅返回本地有效 span 的 ID，透传的远端上下文不冒充本地 span。
+func SpanID(ctx context.Context) string {
+	sc := trace.SpanContextFromContext(ctx)
+	if sc.IsValid() && !sc.IsRemote() {
+		return sc.SpanID().String()
+	}
+	return ""
 }

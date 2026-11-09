@@ -1,0 +1,21 @@
+# 示例需按部署环境替换后端 DNS，并由部署侧提供追踪存储和查询界面。
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+  batch:
+    timeout: 1s
+exporters:
+  otlphttp:
+    endpoint: https://trace-backend.example.com
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp]

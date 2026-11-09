@@ -77,3 +77,7 @@ go build ./test/kafka_producer
 ```
 
 Go 竞态检查需要可用的 C 编译器；具备条件时执行 go test -race ./test/kafka_producer。
+
+## 验证生产消费链路
+
+在原命令追加 `-trace-endpoint http://collector:4318/v1/traces` 可开启联调追踪（采样率 1）。生产 span 在 Broker 确认或失败后结束，消息头携带 W3C 上下文。消费者同时开启追踪即可关联；回执成功不代表消费或位点提交成功。配置及验证见 [观测说明](../../internal/telemetry/README.md)。

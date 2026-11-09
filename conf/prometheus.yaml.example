@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 5s
+scrape_configs:
+  - job_name: order-api
+    static_configs:
+      - targets: ["order-api:9091"]
+        labels:
+          service: order-api
+          env: test
+  - job_name: order-worker
+    static_configs:
+      - targets: ["order-worker:9092"]
+        labels:
+          service: order-worker
+          env: test

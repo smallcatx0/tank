@@ -3,6 +3,7 @@ package task
 
 import (
 	"context"
+	"serv_tpl/internal/requestctx"
 	"time"
 
 	"go.uber.org/zap"
@@ -17,7 +18,7 @@ func LogKafkaMessage(ctx context.Context, m kafka.Message) error {
 		return err
 	}
 	logger.L().Info("worker 收到示例 Kafka 消息",
-		zap.String("trace_id", ""), zap.String("topic", m.Topic),
+		zap.String("trace_id", requestctx.TraceID(ctx)), zap.String("span_id", requestctx.SpanID(ctx)), zap.String("topic", m.Topic),
 		zap.Int32("partition", m.Partition), zap.Int64("offset", m.Offset),
 		zap.Int64("latency_ms", time.Since(start).Milliseconds()))
 	return nil

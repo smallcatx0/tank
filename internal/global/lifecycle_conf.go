@@ -13,8 +13,6 @@ type LifecycleConfig struct {
 	Port                                                    int
 	Debug                                                   bool
 	Startup, Shutdown, ReadHeader, Read, Write, Idle, Drain time.Duration
-	Heartbeat                                               bool
-	HeartbeatInterval                                       time.Duration
 	GRPC                                                    GRPCConfig
 }
 
@@ -54,8 +52,7 @@ func LoadWorkerLifecycleConfig(c *viper.Viper) (LifecycleConfig, error) {
 }
 
 func loadLifecycleConfig(c *viper.Viper, withHTTP bool) (LifecycleConfig, error) {
-	defaults := map[string]any{"startup_timeout": "15s", "shutdown_timeout": 30,
-		"metrics.enable": false, "metrics.dt": 10}
+	defaults := map[string]any{"startup_timeout": "15s", "shutdown_timeout": 30}
 	if withHTTP {
 		for k, v := range map[string]any{"http.port": 8080, "http.debug": false,
 			"grpc.enable": false, "grpc.address": "127.0.0.1:9090", "grpc.drain_timeout": "5s", "grpc.connection_timeout": "5s",
@@ -135,20 +132,6 @@ func loadLifecycleConfig(c *viper.Viper, withHTTP bool) (LifecycleConfig, error)
 		if err != nil {
 			return o, fmt.Errorf("http.debug 必须为布尔值")
 		}
-	}
-	o.Heartbeat, err = strconv.ParseBool(fmt.Sprint(c.Get("metrics.enable")))
-	if err != nil {
-		return o, fmt.Errorf("metrics.enable 必须为布尔值")
-	}
-	if o.Heartbeat {
-		n, e := positiveInt("metrics.dt")
-		if e != nil {
-			return o, e
-		}
-		if int64(n) > int64((1<<63-1)/time.Second) {
-			return o, fmt.Errorf("metrics.dt 超出范围")
-		}
-		o.HeartbeatInterval = time.Duration(n) * time.Second
 	}
 	if c.GetString("log.type") == "file" && c.GetString("log.path") == "" {
 		return o, fmt.Errorf("log.path 未配置")

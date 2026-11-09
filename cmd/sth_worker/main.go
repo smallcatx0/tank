@@ -1,4 +1,4 @@
-// Command sth_worker 顺序启动后台任务，不启动 HTTP。
+// Command sth_worker 显式装配后台业务，可选观测由 bootstrap 管理。
 package main
 
 import (
@@ -6,10 +6,11 @@ import (
 	"serv_tpl/internal/bootstrap"
 	"serv_tpl/internal/global"
 	"serv_tpl/internal/task"
+	"time"
 )
 
 func main() {
-	// 步骤1：解析参数并加载 worker 配置，不校验 HTTP 参数。
+	// 步骤1：加载 worker 业务配置，不校验 HTTP 参数。
 	global.InitFlag()
 	if !global.Flag() {
 		return
@@ -21,17 +22,20 @@ func main() {
 		panic(err)
 	}
 
-	// 步骤2：初始化日志，失败直接 panic。
+	// 步骤2：初始化日志和可选观测，业务排空预算只计算启用项。
 	logSync := bootstrap.MustInitLog()
+	var drain time.Duration
+	if kafkaCfg.Enabled {
+		drain = kafkaCfg.Drain
+	}
 
-	// 步骤3：启动可选心跳及 Kafka 示例消费者。
-	bootstrap.Heartbeat(cfg.Heartbeat, cfg.HeartbeatInterval)
+	observation := bootstrap.StartObservability(global.AppConf, cfg, drain)
 
-	consumer := bootstrap.MustKafkaWorker(kafkaCfg, task.LogKafkaMessage)
-
-	// 步骤4：等待退出，日志最后关闭。
-	os.Exit(bootstrap.WaitingWorkerExit(cfg.Shutdown, consumer.Done(),
+	// 步骤3：显式选择业务回调并登记关闭顺序。
+	consumer := bootstrap.MustKafkaWorker(kafkaCfg, task.LogKafkaMessage, observation.Runtime)
+	os.Exit(bootstrap.WaitingWorkerExit(cfg.Shutdown, consumer.Done(), nil,
 		bootstrap.Cleanup{Name: "kafka", Stop: consumer.Shutdown},
+		bootstrap.Cleanup{Name: "observability", Stop: observation.Shutdown},
 		bootstrap.Cleanup{Name: "log", Stop: logSync},
 	))
 }

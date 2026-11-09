@@ -29,7 +29,7 @@ func (l sqlLogger) Trace(ctx context.Context, begin time.Time, _ func() (string,
 		return
 	}
 	elapsed := time.Since(begin)
-	fields := []zap.Field{zap.String("operation", "database.query"), zap.String("trace_id", requestctx.TraceID(ctx)),
+	fields := []zap.Field{zap.String("operation", "database.query"), zap.String("trace_id", requestctx.TraceID(ctx)), zap.String("span_id", requestctx.SpanID(ctx)),
 		zap.Float64("latency_ms", float64(elapsed)/float64(time.Millisecond))}
 	if err != nil && l.level >= gormlog.Error {
 		logger.L().Error("数据库操作失败", append(fields, zap.Error(err))...)

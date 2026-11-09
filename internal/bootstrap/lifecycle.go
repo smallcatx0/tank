@@ -21,22 +21,26 @@ type Cleanup struct {
 // WaitingExit 仅在启动成功后调用，等待信号或服务停止并按顺序关闭资源。
 // 未启动的 HTTP/gRPC 服务传 nil 通道，对应 select 分支不参与等待。
 // 不接收启动回调、不恢复启动 panic，也不回滚启动资源。
-func WaitingExit(timeout time.Duration, httpDone, grpcDone <-chan error, steps ...Cleanup) int {
-	return waitingExit(timeout, httpDone, grpcDone, nil, steps...)
+func WaitingExit(timeout time.Duration, httpDone, grpcDone, metricsDone <-chan error, steps ...Cleanup) int {
+	return waitingExit(timeout, httpDone, grpcDone, nil, metricsDone, steps...)
 }
 
 // WaitingWorkerExit 监听后台消费者退出，并复用总退出期限和二次信号强退机制。
-func WaitingWorkerExit(timeout time.Duration, workerDone <-chan error, steps ...Cleanup) int {
-	return waitingExit(timeout, nil, nil, workerDone, steps...)
+func WaitingWorkerExit(timeout time.Duration, workerDone, metricsDone <-chan error, steps ...Cleanup) int {
+	return waitingExit(timeout, nil, nil, workerDone, metricsDone, steps...)
 }
 
-func waitingExit(timeout time.Duration, httpDone, grpcDone, workerDone <-chan error, steps ...Cleanup) int {
+func waitingExit(timeout time.Duration, httpDone, grpcDone, workerDone, metricsDone <-chan error, steps ...Cleanup) int {
 	signals := make(chan os.Signal, 2)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
 	defer signal.Stop(signals)
 	var failure error
 	select {
 	case <-signals:
+	case failure = <-metricsDone:
+		if failure == nil {
+			failure = errors.New("监控 HTTP 意外停止")
+		}
 	case failure = <-httpDone:
 		if failure == nil {
 			failure = errors.New("HTTP 意外停止")
@@ -104,7 +108,7 @@ func closeResource(ctx context.Context, name string, stop func(context.Context) 
 	}
 	err = stop(ctx)
 	if err != nil && name != "log" {
-		logger.L().Error("清理失败", zap.String("component", name))
+		logger.L().Error("清理失败", zap.String("component", name), zap.Error(err))
 	}
 	return err
 }

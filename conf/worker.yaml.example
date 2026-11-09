@@ -18,3 +18,18 @@ kafka:
   topics: ["example-events"]
   start_offset: earliest # 仅没有有效提交位点时使用，必须显式指定
   drain_timeout: 40s
+
+# Prometheus 与追踪独立开关；metrics.enable（上文）仍仅为日志心跳。
+# 启用后核对 shutdown_timeout；预算不足将警告并跳过观测。全开 API 建议 40 秒、worker 建议 55 秒。
+observability:
+  service_name: order-worker
+  metrics:
+    enable: false
+    address: 127.0.0.1:9092 # 容器内供抓取时改为 0.0.0.0，限制可信网络访问
+    shutdown_timeout: 2s
+  tracing:
+    enable: false
+    endpoint: http://127.0.0.1:4318/v1/traces
+    sample_ratio: 0.1 # 联调设为 1；比例只控制根链路，父采样决定优先
+    export_timeout: 3s
+    shutdown_timeout: 5s
