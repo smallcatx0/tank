@@ -8,8 +8,12 @@ import (
 	"testing"
 	"time"
 
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"serv_tpl/internal/global"
+	"serv_tpl/internal/requestctx"
 	"serv_tpl/internal/task"
+	"serv_tpl/internal/telemetry"
 	"serv_tpl/pkg/kafka"
 
 	"github.com/stretchr/testify/require"
@@ -81,15 +85,32 @@ func TestKafkaWorkerIntegration(t *testing.T) {
 	o.StartOffset = "earliest"
 	cfg := global.KafkaConfig{Enabled: true, Options: o, Drain: 5 * time.Second}
 	for _, value := range []string{"first", "second"} {
-		require.NoError(t, cl.ProduceSync(ctx, &kgo.Record{Topic: topic, Value: []byte(value)}).FirstErr())
+		observation, e := telemetry.New(ctx, telemetry.Options{Metrics: telemetry.MetricsOptions{Enable: true}})
+		require.NoError(t, e)
+		exporter := tracetest.NewInMemoryExporter()
+		provider := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+		defer provider.Shutdown(context.Background())
+		observation.Provider = provider
+		observation.Options.Tracing.Enable = true
+		producerCtx, end := observation.StartProducer(ctx, topic)
+		record := &kgo.Record{Topic: topic, Value: []byte(value)}
+		for _, h := range observation.InjectKafka(producerCtx, nil) {
+			record.Headers = append(record.Headers, kgo.RecordHeader{Key: h.Key, Value: h.Value})
+		}
+		produceErr := cl.ProduceSync(producerCtx, record).FirstErr()
+		end(produceErr)
+		require.NoError(t, produceErr)
 		got := make(chan string, 2)
 		s := MustKafkaWorker(cfg, func(ctx context.Context, m kafka.Message) error {
 			if err := task.LogKafkaMessage(ctx, m); err != nil {
 				return err
 			}
+			if requestctx.TraceID(ctx) != requestctx.TraceID(producerCtx) || requestctx.SpanID(ctx) == "" {
+				return fmt.Errorf("消费链路未关联生产者")
+			}
 			got <- string(m.Value)
 			return nil
-		})
+		}, observation)
 		defer func() {
 			cleanup, stop := context.WithTimeout(context.Background(), 5*time.Second)
 			defer stop()
@@ -104,6 +125,16 @@ func TestKafkaWorkerIntegration(t *testing.T) {
 			t.Fatal(ctx.Err())
 		}
 		require.NoError(t, s.Shutdown(ctx))
+		require.Len(t, exporter.GetSpans(), 2)
+		families, e := observation.Registry.Gather()
+		require.NoError(t, e)
+		found := false
+		for _, f := range families {
+			if strings.HasPrefix(f.GetName(), "kafka_consumer_") {
+				found = true
+			}
+		}
+		require.True(t, found)
 	}
 	global.KafkaCli = nil
 }

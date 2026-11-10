@@ -28,7 +28,7 @@ func TestMustStartHTTPAssembly(t *testing.T) {
 	for _, debug := range []bool{false, true} {
 		func() {
 			// 随机本地端口，不初始化或访问 MySQL/Redis。
-			s := MustStartHTTP(global.LifecycleConfig{Port: 0, Debug: debug, Drain: time.Second})
+			s := MustStartHTTP(global.LifecycleConfig{Port: 0, Debug: debug, Drain: time.Second}, closedRuntime(t))
 			defer s.Shutdown(context.Background())
 			wantMode := gin.ReleaseMode
 			if debug {
@@ -107,7 +107,7 @@ func TestHTTPConflict(t *testing.T) {
 	require.NoError(t, e)
 	defer ln.Close()
 	require.PanicsWithValue(t, "HTTP 监听失败", func() {
-		MustStartHTTP(global.LifecycleConfig{Port: ln.Addr().(*net.TCPAddr).Port, Drain: time.Second})
+		MustStartHTTP(global.LifecycleConfig{Port: ln.Addr().(*net.TCPAddr).Port, Drain: time.Second}, closedRuntime(t))
 	})
 }
 func TestHTTPForcedCancel(t *testing.T) {

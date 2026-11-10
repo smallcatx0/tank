@@ -1,4 +1,4 @@
-// Command api 顺序启动 HTTP 及可选 gRPC 服务，启动失败由 panic 终止进程。
+// Command api 显式装配业务资源，可选观测由 bootstrap 管理。
 package main
 
 import (
@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	// 步骤1：解析参数并加载配置
+	// 步骤1：加载并校验必需的业务配置。
 	global.InitFlag()
 	if !global.Flag() {
 		return
@@ -16,22 +16,20 @@ func main() {
 	global.MustInitAppConf(global.Param.C)
 	cfg := global.MustLoadLifecycleConfig(global.AppConf)
 
-	// 步骤2：初始化日志和存储
+	// 步骤2：初始化日志和存储，按需启用观测；观测失败降级。
 	logSync := bootstrap.MustInitLog()
 	closeDB := bootstrap.MustInitDBs(cfg.Startup)
+	// 步骤3：启动观测（非必须，配置失败不会阻塞主流程）
+	observation := bootstrap.StartObservability(global.AppConf, cfg, cfg.Drain, cfg.GRPC.Drain)
 
-	// 步骤3：启动心跳。
-	bootstrap.Heartbeat(cfg.Heartbeat, cfg.HeartbeatInterval)
-
-	// 步骤4：启动 HTTP 与可选 gRPC 服务。
-	server := bootstrap.MustStartHTTP(cfg)
-	rpc := bootstrap.MustGrpcServ(cfg)
-
-	// 步骤5：全部启动成功后才接管退出，按显式顺序关闭，日志最后。
-	os.Exit(bootstrap.WaitingExit(cfg.Shutdown, server.Done(), rpc.Done(),
+	// 步骤4：显式启动业务入口并登记关闭顺序。
+	server := bootstrap.MustStartHTTP(cfg, observation.Runtime)
+	rpc := bootstrap.MustGrpcServ(cfg, observation.Runtime)
+	os.Exit(bootstrap.WaitingExit(cfg.Shutdown, server.Done(), rpc.Done(), nil,
 		bootstrap.Cleanup{Name: "http", Stop: server.Shutdown},
 		bootstrap.Cleanup{Name: "grpc", Stop: rpc.Shutdown},
 		bootstrap.Cleanup{Name: "storage", Stop: closeDB},
+		bootstrap.Cleanup{Name: "observability", Stop: observation.Shutdown},
 		bootstrap.Cleanup{Name: "log", Stop: logSync},
 	))
 }

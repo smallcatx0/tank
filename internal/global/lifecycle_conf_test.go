@@ -12,20 +12,17 @@ func TestLifecycleDefaults(t *testing.T) {
 	require.NoError(t, e)
 	require.Equal(t, 8080, o.Port)
 	require.False(t, o.Debug)
-	require.False(t, o.Heartbeat)
 }
 
-func TestDisabledHeartbeatIgnoresInterval(t *testing.T) {
+func TestLifecycleIgnoresHeartbeatConfig(t *testing.T) {
 	for _, load := range []func(*viper.Viper) (LifecycleConfig, error){LoadLifecycleConfig, LoadWorkerLifecycleConfig} {
-		for _, explicit := range []bool{false, true} {
+		for _, enabled := range []any{false, true, "invalid"} {
 			c := viper.New()
-			if explicit {
-				c.Set("metrics.enable", false)
-			}
+			c.Set("metrics.enable", enabled)
 			c.Set("metrics.dt", "invalid")
 			cfg, err := load(c)
 			require.NoError(t, err)
-			require.False(t, cfg.Heartbeat)
+			require.NotZero(t, cfg.Shutdown)
 		}
 	}
 }
@@ -54,7 +51,7 @@ func TestWorkerIgnoresHTTPConfig(t *testing.T) {
 		key   string
 		value any
 	}{
-		{"startup_timeout", "invalid"}, {"shutdown_timeout", 0}, {"metrics.enable", "invalid"}, {"log.type", "file"},
+		{"startup_timeout", "invalid"}, {"shutdown_timeout", 0}, {"log.type", "file"},
 	} {
 		c := viper.New()
 		c.Set(tc.key, tc.value)
@@ -70,7 +67,7 @@ func TestLifecycleInvalid(t *testing.T) {
 		{"http.port", 0}, {"http.port", -1}, {"http.port", 65536}, {"http.port", "bad"},
 		{"shutdown_timeout", 0}, {"shutdown_timeout", "bad"}, {"http.read_timeout", "bad"},
 		{"http.idle_timeout", "0s"}, {"startup_timeout", "-1s"}, {"http.drain_timeout", "30s"},
-		{"http.debug", "bad"}, {"metrics.enable", "bad"}, {"shutdown_timeout", int64(9223372036854775807)},
+		{"http.debug", "bad"}, {"shutdown_timeout", int64(9223372036854775807)},
 	} {
 		t.Run(tc.key+":"+fmt.Sprint(tc.value), func(t *testing.T) {
 			c := viper.New()
@@ -80,19 +77,8 @@ func TestLifecycleInvalid(t *testing.T) {
 		})
 	}
 	c := viper.New()
-	c.Set("metrics.enable", true)
-	c.Set("metrics.dt", -1)
-	_, e := LoadLifecycleConfig(c)
-	require.Error(t, e)
-	c.Set("metrics.dt", 10)
-	_, e = LoadLifecycleConfig(c)
-	require.NoError(t, e)
-	c.Set("metrics.dt", int64(9223372036854775807))
-	_, e = LoadLifecycleConfig(c)
-	require.Error(t, e)
-	c = viper.New()
 	c.Set("log.type", "file")
-	_, e = LoadLifecycleConfig(c)
+	_, e := LoadLifecycleConfig(c)
 	require.Error(t, e)
 	c.Set("log.path", "file.log")
 	_, e = LoadLifecycleConfig(c)

@@ -16,13 +16,17 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/spf13/viper"
 	"serv_tpl/internal/bootstrap"
+	"serv_tpl/internal/global"
+	"serv_tpl/internal/telemetry"
 
 	"github.com/subosito/gotenv"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
 type producerConfig struct {
+	traceEndpoint       string
 	continuous          bool
 	interval            time.Duration
 	brokers             []string
@@ -67,6 +71,7 @@ func parseConfig(args []string, out io.Writer, getenv func(string) string) (prod
 	var cfg producerConfig
 	fs := flag.NewFlagSet("kafka_producer", flag.ContinueOnError)
 	fs.SetOutput(out)
+	fs.StringVar(&cfg.traceEndpoint, "trace-endpoint", "", "可选 OTLP/HTTP 完整 URL，联调采样率为 1")
 	brokers := fs.String("brokers", "", "Kafka host:port 列表，逗号分隔")
 	fs.StringVar(&cfg.topic, "topic", "", "已存在的测试主题")
 	fs.StringVar(&cfg.key, "key", "", "消息 key，不记录到输出")
@@ -144,7 +149,21 @@ func validTopic(topic string) bool {
 	return true
 }
 
-func produce(parent context.Context, cfg producerConfig, out io.Writer) error {
+func produce(parent context.Context, cfg producerConfig, out io.Writer) (result error) {
+	c := viper.New()
+	c.Set("observability.service_name", "kafka-producer-client")
+	c.Set("observability.tracing.enable", cfg.traceEndpoint != "")
+	c.Set("observability.tracing.endpoint", cfg.traceEndpoint)
+	c.Set("observability.tracing.sample_ratio", 1)
+	options, err := global.LoadObservabilityConfig(c)
+	if err != nil {
+		return err
+	}
+	observation, err := telemetry.New(parent, options)
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, observation.Shutdown(context.Background())) }()
 	ctx := parent
 	if !cfg.continuous {
 		var cancel context.CancelFunc
@@ -164,8 +183,14 @@ func produce(parent context.Context, cfg producerConfig, out io.Writer) error {
 	defer cl.Close()
 	encoder := json.NewEncoder(out)
 	return sendLoop(ctx, cfg, func(sendCtx context.Context) error {
+		sendCtx, end := observation.StartProducer(sendCtx, cfg.topic)
 		record := &kgo.Record{Topic: cfg.topic, Key: []byte(cfg.key), Value: []byte(cfg.message)}
-		if err := cl.ProduceSync(sendCtx, record).FirstErr(); err != nil {
+		for _, h := range observation.InjectKafka(sendCtx, nil) {
+			record.Headers = append(record.Headers, kgo.RecordHeader{Key: h.Key, Value: h.Value})
+		}
+		sendErr := cl.ProduceSync(sendCtx, record).FirstErr()
+		end(sendErr)
+		if err := sendErr; err != nil {
 			return fmt.Errorf("发送消息失败: %w", err)
 		}
 		// 步骤3：仅在 Broker 确认后输出位点；输出失败不回滚已发送的消息。

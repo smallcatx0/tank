@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"serv_tpl/internal/global"
+	"serv_tpl/internal/requestctx"
+	"serv_tpl/internal/telemetry"
 	"serv_tpl/pkg/logger"
 	"serv_tpl/routes"
 
@@ -35,19 +37,22 @@ type GRPCService struct {
 }
 
 // MustGrpcServ 按开关装配 gRPC，启用时同步监听，启动失败直接 panic。
-func MustGrpcServ(cfg global.LifecycleConfig) *GRPCService {
+// observation 必须非 nil；关闭观测时传入关闭态 Runtime。
+func MustGrpcServ(cfg global.LifecycleConfig, observation *telemetry.Runtime) *GRPCService {
 	if !cfg.GRPC.Enabled {
 		return nil
 	}
+	obs := observation.NewServerStats()
+	opts := []grpc.ServerOption{grpc.ConnectionTimeout(cfg.GRPC.ConnectionTimeout), grpc.UnaryInterceptor(recoverUnaryRPC), grpc.StreamInterceptor(recoverStreamRPC), grpc.StatsHandler(obs)}
 	// 步骤1：在监听前装配拦截器、生命周期健康服务和业务注册入口。
 	s := &GRPCService{
-		server: grpc.NewServer(grpc.ConnectionTimeout(cfg.GRPC.ConnectionTimeout),
-			grpc.UnaryInterceptor(recoverUnaryRPC), grpc.StreamInterceptor(recoverStreamRPC)),
+		server: grpc.NewServer(opts...),
 		health: health.NewServer(), done: make(chan error, 1), finished: make(chan struct{}),
 		drain: cfg.GRPC.Drain,
 	}
 	healthpb.RegisterHealthServer(s.server, s.health)
 	routes.RegisterGRPC(s.server)
+	obs.Register(s.server.GetServiceInfo())
 	ln, err := net.Listen("tcp", cfg.GRPC.Address)
 	if err != nil {
 		panic("gRPC 监听失败")
@@ -131,7 +136,7 @@ func (s *GRPCService) Shutdown(ctx context.Context) error {
 func recoverUnaryRPC(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (reply any, err error) {
 	defer func() {
 		if recover() != nil {
-			logger.L().Error("gRPC handler panic", zap.String("method", info.FullMethod), zap.ByteString("stack", debug.Stack()))
+			logger.L().Error("gRPC handler panic", zap.String("method", info.FullMethod), zap.String("trace_id", requestctx.TraceID(ctx)), zap.String("span_id", requestctx.SpanID(ctx)), zap.ByteString("stack", debug.Stack()))
 			reply, err = nil, status.Error(codes.Internal, "内部服务错误")
 		}
 	}()
@@ -141,7 +146,7 @@ func recoverUnaryRPC(ctx context.Context, req any, info *grpc.UnaryServerInfo, h
 func recoverStreamRPC(srv any, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (err error) {
 	defer func() {
 		if recover() != nil {
-			logger.L().Error("gRPC stream panic", zap.String("method", info.FullMethod), zap.ByteString("stack", debug.Stack()))
+			logger.L().Error("gRPC stream panic", zap.String("method", info.FullMethod), zap.String("trace_id", requestctx.TraceID(stream.Context())), zap.String("span_id", requestctx.SpanID(stream.Context())), zap.ByteString("stack", debug.Stack()))
 			err = status.Error(codes.Internal, "内部服务错误")
 		}
 	}()

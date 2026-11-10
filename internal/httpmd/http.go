@@ -18,5 +18,5 @@ func ReqLog(c *gin.Context) {
 	ctx := c.Request.Context()
 	logger.L().Info("HTTP 请求完成", zap.String("method", c.Request.Method),
 		zap.String("route", c.FullPath()), zap.Int("status", c.Writer.Status()),
-		zap.String("trace_id", requestctx.TraceID(ctx)), zap.Float64("latency_ms", requestctx.LatencyMS(ctx)))
+		zap.String("trace_id", requestctx.TraceID(ctx)), zap.String("span_id", requestctx.SpanID(ctx)), zap.Float64("latency_ms", requestctx.LatencyMS(ctx)))
 }

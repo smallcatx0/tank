@@ -3,6 +3,7 @@ package main
 
 import (
 	"os"
+	"time"
 
 	"serv_tpl/internal/bootstrap"
 	"serv_tpl/internal/global"
@@ -22,17 +23,21 @@ func main() {
 		panic(err)
 	}
 
-	// 步骤2：初始化日志，失败直接 panic。
+	// 步骤2：初始化日志，失败直接 panic；按需启用观测（含心跳），业务排空预算只计算启用项。
 	logSync := bootstrap.MustInitLog()
+	var drain time.Duration
+	if kafkaCfg.Enabled {
+		drain = kafkaCfg.Drain
+	}
+	observation := bootstrap.StartObservability(global.AppConf, cfg, drain)
 
-	// 步骤3：启动可选心跳及 Kafka 消费者；enable=false 时不启动。
-	bootstrap.Heartbeat(cfg.Heartbeat, cfg.HeartbeatInterval)
+	// 步骤3：启动可选 Kafka 消费者；enable=false 时不启动。
+	consumer := bootstrap.MustKafkaWorker(kafkaCfg, task.LogKafkaMessage, observation.Runtime)
 
-	consumer := bootstrap.MustKafkaWorker(kafkaCfg, task.LogKafkaMessage)
-
-	// 步骤4：等待退出，先排空消费者、最后关闭日志。
-	os.Exit(bootstrap.WaitingWorkerExit(cfg.Shutdown, consumer.Done(),
+	// 步骤4：等待退出，先排空消费者、再关闭观测、最后关闭日志。
+	os.Exit(bootstrap.WaitingWorkerExit(cfg.Shutdown, consumer.Done(), nil,
 		bootstrap.Cleanup{Name: "kafka", Stop: consumer.Shutdown},
+		bootstrap.Cleanup{Name: "observability", Stop: observation.Shutdown},
 		bootstrap.Cleanup{Name: "log", Stop: logSync},
 	))
 }

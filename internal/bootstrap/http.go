@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"serv_tpl/internal/global"
 	"serv_tpl/internal/httpmd"
+	"serv_tpl/internal/telemetry"
 	"serv_tpl/routes"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,8 @@ type httpOptions struct {
 }
 
 // MustStartHTTP 装配本服务的中间件和路由，同步监听后发布就绪，失败直接 panic。
-func MustStartHTTP(cfg global.LifecycleConfig) *HTTPService {
+// observation 必须非 nil；关闭观测时传入关闭态 Runtime。
+func MustStartHTTP(cfg global.LifecycleConfig, observation *telemetry.Runtime) *HTTPService {
 	// 步骤1：设置模式并在监听前完成全部路由装配。
 	if cfg.Debug {
 		gin.SetMode(gin.DebugMode)
@@ -33,7 +35,7 @@ func MustStartHTTP(cfg global.LifecycleConfig) *HTTPService {
 	}
 	ready := new(atomic.Bool)
 	engine := gin.New()
-	engine.Use(httpmd.Trace, httpmd.ReqLog, httpmd.Recovery)
+	engine.Use(httpmd.Observe(observation), httpmd.ReqLog, httpmd.Recovery)
 
 	routes.RegisterHTTP(engine, ready.Load)
 
@@ -96,10 +98,18 @@ func serveHTTP(handler http.Handler, o httpOptions, ln net.Listener) *HTTPServic
 }
 
 // Done 返回 Serve 的唯一结果，供运行编排监测。
-func (s *HTTPService) Done() <-chan error { return s.done }
+func (s *HTTPService) Done() <-chan error {
+	if s == nil {
+		return nil
+	}
+	return s.done
+}
 
 // Shutdown 先撤销就绪再幂等排空；超时取消请求并强制关闭连接。
 func (s *HTTPService) Shutdown(ctx context.Context) error {
+	if s == nil {
+		return nil
+	}
 	s.once.Do(func() {
 		if s.ready != nil {
 			s.ready.Store(false)

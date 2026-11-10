@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"serv_tpl/internal/global"
+	"serv_tpl/internal/telemetry"
 	"serv_tpl/pkg/kafka"
 )
 
@@ -28,7 +29,8 @@ type KafkaService struct {
 }
 
 // MustKafkaWorker 构造并启动消费者；构造成功不代表已连接 Broker。
-func MustKafkaWorker(cfg global.KafkaConfig, handler kafka.Handler) *KafkaService {
+// observation 必须非 nil；关闭观测时传入关闭态 Runtime。
+func MustKafkaWorker(cfg global.KafkaConfig, handler kafka.Handler, observation *telemetry.Runtime) *KafkaService {
 	if !cfg.Enabled {
 		return nil
 	}
@@ -39,6 +41,12 @@ func MustKafkaWorker(cfg global.KafkaConfig, handler kafka.Handler) *KafkaServic
 	if err != nil {
 		panic(err)
 	}
+	if observation.Registry != nil {
+		if err := observation.Registry.Register(consumer); err != nil {
+			warnObservation("kafka_register")
+		}
+	}
+	handler = observation.KafkaHandler(handler)
 	global.KafkaCli = consumer
 	return startKafka(consumer, handler, cfg.Drain)
 }

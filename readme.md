@@ -35,7 +35,7 @@ test -f conf/worker.yaml || cp conf/worker.yaml.example conf/worker.yaml
 go run ./cmd/sth_worker -config conf/worker.yaml
 ```
 
-任务 worker 初始化日志与 MySQL/Redis 存储，启动 RabbitMQ 任务消费和可选系统心跳，不启动 HTTP/gRPC；退出顺序为任务 → 存储 → 日志。
+任务 worker 初始化日志与 MySQL/Redis 存储，启动 RabbitMQ 任务消费和可选观测（含心跳），不启动 HTTP/gRPC；退出顺序为任务 → 观测 → 存储 → 日志。
 
 需要消费 Kafka 时使用独立入口，按目标环境填写 brokers、topics、group_id 并预先创建主题：
 
@@ -45,7 +45,7 @@ test -f conf/kafka_worker.yaml || cp conf/kafka_worker.yaml.example conf/kafka_w
 go run ./cmd/kafka_worker -config conf/kafka_worker.yaml
 ```
 
-Kafka worker 只装配日志、可选心跳与消费者，不连接 MySQL/Redis；示例回调仅记录消息位置并提交位点，请使用独立测试主题与消费组。`kafka.enable` 默认 false，示例模板显式开启；`drain_timeout` 必须大于 35s 且小于 `shutdown_timeout`，退出时先排空消费者、最后关闭日志，消费失败触发非零退出。配置与业务回调替换方式见 [Kafka 组件说明](pkg/kafka/README.md#worker-入口装配)。
+Kafka worker 只装配日志、可选观测与消费者，不连接 MySQL/Redis；示例回调仅记录消息位置并提交位点，请使用独立测试主题与消费组。`kafka.enable` 默认 false，示例模板显式开启；`drain_timeout` 必须大于 35s 且小于 `shutdown_timeout`，退出时先排空消费者、再关闭观测、最后关闭日志，消费失败触发非零退出。配置与业务回调替换方式见 [Kafka 组件说明](pkg/kafka/README.md#worker-入口装配)。
 
 ## 配置与日志
 
@@ -54,7 +54,7 @@ Kafka worker 只装配日志、可选心跳与消费者，不连接 MySQL/Redis�
 - `env: dev` 保留普通系统错误回显，其他环境隐藏响应细节；生产部署显式设置 `env: prod`。未配置 env 时默认 dev。
 - 系统错误日志直接使用 `zap.Error(err)` 保留原文，详见 [日志说明](pkg/logger/README.md)和[响应契约](internal/resp/README.md)。
 - 容器推荐 `log.type: stdout`；文件模式需要可写目录，按天切割且固定保留 365 天。未知日志类型使用 stdout，未知等级回退 info。
-- `metrics.enable` 启用系统状态日志，不提供 Prometheus 端点。
+- `metrics.enable` 仅启用系统状态日志。Prometheus 与追踪使用独立的 `observability` 配置，默认关闭，观测故障降级不阻止业务；启用、抓取和链路验证见 [观测接入](internal/telemetry/README.md)。
 - API 在启动阶段直接装配 MySQL/Redis，不提供组件配置开关。不需要时裁剪 [API 入口](cmd/api/main.go)与[存储装配](internal/bootstrap/bootstrap.go)，并移除依赖该组件的业务和路由。
 
 ## 构建与检查
@@ -71,7 +71,7 @@ go vet ./...
 
 ## 容器构建与运行
 
-[Dockerfile](Dockerfile) 使用 Go 多阶段构建，固定构建 API。后续需要构建 worker 镜像时，新增独立 Dockerfile。运行镜像为 Alpine 3.24，提供 `/bin/sh` 和基础命令，包含静态程序和时区数据，使用 UID/GID 65532；不包含配置，不额外安装或复制 CA 证书。
+[Dockerfile](Dockerfile) 使用 Go 多阶段构建，固定构建 API。后续需要构建 worker 镜像时，新增独立 Dockerfile。运行镜像为 Alpine 3.24，提供 `/bin/sh` 和基础命令，包含静态程序和时区数据，使用 UID/GID 65532；不包含配置，从构建镜像复制公共 CA 信任库，私有 CA 由部署侧注入。
 
 ```bash
 docker build -t serv-tpl:api .

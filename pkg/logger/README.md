@@ -151,3 +151,7 @@ HTTP 入口：`go run ./cmd/api -config conf/app.yaml`。启动仍要求有效 M
 HTTP 完成日志携带 method、route（路由模板）、status、trace_id、latency_ms，不读取 body，不输出完整 URI、请求头和查询串。店铺日志只记录店铺 ID、状态、页码和条数等允许字段，不记录店铺名称。
 
 HTTP 系统错误和 GORM 错误直接通过 zap.Error(err) 记录错误原文及包装上下文，统一字段为 error，不再提取 error_type、error_category 或 mysql_code。GORM 适配器不主动调用 SQL 格式化回调；驱动错误本身包含的信息按原样记录。操作名、耗时及 trace_id 保留。响应中的 dev 联调错误回显规则见 [响应包说明](../../internal/resp/README.md)。
+
+## 链路关联
+
+入口与业务日志通过 `requestctx.TraceID(ctx)` / `requestctx.SpanID(ctx)` 补充 `trace_id` / `span_id`。未启用追踪时只透传远端上下文，不将远端 SpanID 记为本地 span_id；未采样链路仍有 ID，但不保证后端可检索。SQL 仍只关联日志，不自动创建 span。观测出口的隐私限制见 [观测说明](../../internal/telemetry/README.md)，不改变本组件的错误日志约定。

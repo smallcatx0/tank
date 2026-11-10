@@ -31,7 +31,7 @@ func TestWaitingExitOrder(t *testing.T) {
 			if mode == "nil-http-channel" {
 				grpcDone, httpResult = httpDone, nil
 			}
-			code := WaitingExit(5*time.Second, httpResult, grpcDone,
+			code := WaitingExit(5*time.Second, httpResult, grpcDone, nil,
 				Cleanup{Name: "http", Stop: func(ctx context.Context) error {
 					require.NoError(t, ctx.Err())
 					order = append(order, "http")
