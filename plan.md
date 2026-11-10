@@ -14,3 +14,5 @@
 - [x] [D29 Kafka生产者持续发送](docs/history/D29-Kafka生产者持续发送-design.md)
 
 - [x] [D26 Worker 装配 Kafka 消费](docs/history/D26-Worker装配Kafka消费-design.md)（验收通过）。
+
+- [x] [D33 可观测性部署验证](docs/history/D33-可观测性部署验证-design.md)（抓取与四段链路查询通过，临时环境已清理）。
