@@ -11,6 +11,7 @@ RUN CGO_ENABLED=0 go build -trimpath -o /out/service ./cmd/api \
 
 FROM alpine:3.24
 COPY --from=build /usr/share/zoneinfo /usr/share/zoneinfo
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build --chown=65532:65532 /runtime/ /app/
 COPY --from=build /out/service /app/service
 WORKDIR /app

@@ -20,12 +20,12 @@ type fakeKafka struct {
 func (f fakeKafka) Run(ctx context.Context, h kafka.Handler) error { return f.run(ctx, h) }
 func (f fakeKafka) Shutdown(ctx context.Context) error             { return f.stop(ctx) }
 func TestKafkaDisabledAndInvalid(t *testing.T) {
-	s := MustKafkaWorker(global.KafkaConfig{}, nil)
+	s := MustKafkaWorker(global.KafkaConfig{}, nil, closedRuntime(t))
 	require.Nil(t, s.Done())
 	require.NoError(t, s.Shutdown(context.Background()))
-	require.Panics(t, func() { MustKafkaWorker(global.KafkaConfig{Enabled: true}, nil) })
+	require.Panics(t, func() { MustKafkaWorker(global.KafkaConfig{Enabled: true}, nil, closedRuntime(t)) })
 	require.Panics(t, func() {
-		MustKafkaWorker(global.KafkaConfig{Enabled: true}, func(context.Context, kafka.Message) error { return nil })
+		MustKafkaWorker(global.KafkaConfig{Enabled: true}, func(context.Context, kafka.Message) error { return nil }, closedRuntime(t))
 	})
 }
 func TestKafkaRunFailure(t *testing.T) {
@@ -45,7 +45,7 @@ func TestKafkaRunFailure(t *testing.T) {
 				stop: func(context.Context) error { return nil },
 			}, nil, time.Second)
 			var order []string
-			code := WaitingWorkerExit(2*time.Second, s.Done(),
+			code := WaitingWorkerExit(2*time.Second, s.Done(), nil,
 				Cleanup{Name: "kafka", Stop: func(ctx context.Context) error { order = append(order, "kafka"); return s.Shutdown(ctx) }},
 				Cleanup{Name: "log", Stop: func(context.Context) error { order = append(order, "log"); return nil }})
 			require.Equal(t, 1, code)
@@ -90,7 +90,7 @@ func TestKafkaConstructAndClose(t *testing.T) {
 	o.Topics = []string{"example"}
 	o.GroupID = "test"
 	o.StartOffset = "earliest"
-	s := MustKafkaWorker(global.KafkaConfig{Enabled: true, Options: o, Drain: time.Second}, func(context.Context, kafka.Message) error { return nil })
+	s := MustKafkaWorker(global.KafkaConfig{Enabled: true, Options: o, Drain: time.Second}, func(context.Context, kafka.Message) error { return nil }, closedRuntime(t))
 	require.NotNil(t, global.KafkaCli)
 	require.NoError(t, s.Shutdown(context.Background()))
 	global.KafkaCli = nil

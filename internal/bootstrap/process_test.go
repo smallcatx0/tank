@@ -5,10 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"os"
 	"os/exec"
 	"runtime"
+	"serv_tpl/internal/global"
 	"strings"
 	"syscall"
 	"testing"
@@ -26,6 +28,18 @@ func TestProcessHelper(t *testing.T) {
 }
 
 func processRun(mode string) int {
+	if mode == "optional-worker" {
+		global.AppConf = viper.New()
+		global.AppConf.Set("shutdown_timeout", 2)
+		global.AppConf.Set("metrics.enable", "invalid")
+		global.AppConf.Set("observability.metrics.enable", true)
+		global.AppConf.Set("observability.metrics.address", "invalid")
+		go announceWaitingExit()
+		cfg := global.MustLoadWorkerLifecycleConfig(global.AppConf)
+		logSync := MustInitLog()
+		observation := StartObservability(global.AppConf, cfg)
+		return WaitingWorkerExit(cfg.Shutdown, nil, nil, Cleanup{Name: "observability", Stop: observation.Shutdown}, Cleanup{Name: "log", Stop: logSync})
+	}
 	if mode == "panic" {
 		panic("startup")
 	}
@@ -42,7 +56,7 @@ func processRun(mode string) int {
 	if mode == "second" {
 		timeout = 10 * time.Second // 父进程期限更短，防止总超时冒充二次信号通过。
 	}
-	return WaitingExit(timeout, httpDone, nil,
+	return WaitingExit(timeout, httpDone, nil, nil,
 		Cleanup{Name: "http", Stop: func(context.Context) error {
 			fmt.Println("DRAINING")
 			if mode == "hang" || mode == "second" || mode == "http-hang" {
@@ -78,7 +92,7 @@ func announceWaitingExit() {
 	for {
 		n := runtime.Stack(buf, true)
 		for _, stack := range strings.Split(string(buf[:n]), "\n\n") {
-			if strings.Contains(stack, " [select]:") && strings.Contains(stack, "/internal/bootstrap.WaitingExit(") {
+			if strings.Contains(stack, " [select]:") && (strings.Contains(stack, "/internal/bootstrap.WaitingExit(") || strings.Contains(stack, "/internal/bootstrap.WaitingWorkerExit(")) {
 				fmt.Println("READY")
 				return
 			}
@@ -147,6 +161,7 @@ func TestProcessSignals(t *testing.T) {
 		{"term", "normal", syscall.SIGTERM, false, 0}, {"int", "normal", os.Interrupt, false, 0},
 		{"timeout", "hang", syscall.SIGTERM, false, 1}, {"second", "second", syscall.SIGTERM, true, 1},
 		{"log-timeout", "log-hang", syscall.SIGTERM, false, 1},
+		{"optional-worker", "optional-worker", syscall.SIGTERM, false, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -179,6 +194,9 @@ func TestProcessSignals(t *testing.T) {
 			require.NoError(t, ctx.Err())
 			if tc.code == 0 {
 				require.NoError(t, e)
+				if tc.mode == "optional-worker" {
+					return
+				}
 				require.Contains(t, strings.Join(lines, " "), "LOG_CLOSED")
 				require.Equal(t, []string{"DRAINING", "STORAGE_CLOSED", "LOG_CLOSED"}, lines)
 			} else {

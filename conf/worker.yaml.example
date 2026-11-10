@@ -34,4 +34,19 @@ redis:
 # 心跳日志配置
 metrics:
   enable: false # 系统状态日志心跳
-  dt: 10 # 秒；仅 enable=true 时校验
+  dt: 10 # 秒，默认 10；启用后无效或溢出的间隔会跳过心跳
+
+# Prometheus 与追踪独立开关；metrics.enable（上文）仍仅为日志心跳。
+# 启用后核对 shutdown_timeout；预算不足将警告并跳过观测。worker 全开建议 55 秒。
+observability:
+  service_name: sth_worker
+  metrics:
+    enable: false
+    address: 127.0.0.1:9092 # 容器内供抓取时改为 0.0.0.0，限制可信网络访问
+    shutdown_timeout: 2s
+  tracing:
+    enable: false
+    endpoint: http://127.0.0.1:4318/v1/traces
+    sample_ratio: 0.1 # 联调设为 1；比例只控制根链路，父采样决定优先
+    export_timeout: 3s
+    shutdown_timeout: 5s

@@ -123,7 +123,7 @@ kafka.enable 默认 false；kafka_worker.yaml.example 显式开启 Kafka，其�
 消费失败停止进程并返回非零退出码；Ctrl+C/SIGTERM 先排空消费者，最后关闭日志。
 排空预算默认 40s，总退出预算示例为 45s；二次信号或总超时强退。
 brokers、topics、group_id、client_id 在配置加载阶段即校验，缺失时不会走到构造消费者。
-启动日志不代表 Broker 已就绪，主题需预先创建。本次未新增 Prometheus HTTP 端口。
+启动日志不代表 Broker 已就绪，主题需预先创建。worker 可通过 `observability.metrics.enable` 启用独立监控 HTTP，并在 Run 前注册本 Collector；追踪由内部包装层处理，组件保持独立。配置与验证见 [观测接入](../../internal/telemetry/README.md)。
 
 业务回调需要数据库时，应在该入口自行装配 MySQL/Redis，并在消费者关闭后再释放连接。
 

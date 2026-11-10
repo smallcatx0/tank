@@ -33,3 +33,7 @@
 `resp.Paginate` 返回 `data.page` 与 `data.list`。店铺示例对空集合传入非 nil 空切片，输出 `[]`。完整实现见 [模型](../../models/dao/schema/shop.go)、[控制器](../../controller/v1/shop.go)，接入步骤见 [业务接入指南](../../业务接入指南.md)。
 
 `SuccJsonRaw(c, data)` 原样嵌入合法 JSON 值，不解析或校验；调用方必须保证合法性，无数据应传 `"null"`。request_id 独立 JSON 编码。
+
+## 追踪开启后的请求标识
+
+响应结构和 `x-b3-traceid` 头名称保持不变。开启追踪时，`request_id`、该响应头与日志 trace_id 统一为当前 OTel 的 32 位 TraceID；仅传旧 B3 单 ID 不再保证回显，合法 W3C traceparent 才能延续父链路。关闭追踪时 W3C 优先，否则保持原 B3 校验与生成行为。详见 [传播契约](../telemetry/README.md)。

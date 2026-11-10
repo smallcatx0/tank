@@ -14,6 +14,7 @@ import (
 
 	"serv_tpl/internal/bootstrap"
 	"serv_tpl/internal/global"
+	"serv_tpl/internal/telemetry"
 	"serv_tpl/pkg/kafka"
 
 	"github.com/stretchr/testify/require"
@@ -78,6 +79,8 @@ func TestIntegrationProducerConsumer(t *testing.T) {
 	o.Topics = []string{topic}
 	o.GroupID = topic
 	o.StartOffset = "earliest"
+	observation, err := telemetry.New(context.Background(), telemetry.Options{})
+	require.NoError(t, err)
 	cfg := global.KafkaConfig{Enabled: true, Options: o, Drain: 5 * time.Second}
 	for _, phase := range []struct {
 		value  string
@@ -94,7 +97,7 @@ func TestIntegrationProducerConsumer(t *testing.T) {
 			case <-ctx.Done():
 				return ctx.Err()
 			}
-		})
+		}, observation)
 		t.Cleanup(func() {
 			closeCtx, end := context.WithTimeout(context.Background(), 6*time.Second)
 			defer end()
@@ -142,7 +145,7 @@ func TestIntegrationProducerConsumer(t *testing.T) {
 		case <-ctx.Done():
 			return ctx.Err()
 		}
-	})
+	}, observation)
 	defer func() {
 		closeCtx, end := context.WithTimeout(context.Background(), 6*time.Second)
 		defer end()

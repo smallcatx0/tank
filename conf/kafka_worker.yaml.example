@@ -9,6 +9,7 @@ log:
 
 metrics:
   enable: false
+  dt: 10 # 秒，默认 10；启用后无效或溢出的间隔会跳过心跳
 
 kafka:
   enable: true
@@ -19,3 +20,18 @@ kafka:
   start_offset: earliest # 仅没有有效提交位点时使用，必须显式指定
   # 必须大于 35s（消息处理 30s + 提交 5s）且小于 shutdown_timeout
   drain_timeout: 40s
+
+# Prometheus 与追踪独立开关；metrics.enable（上文）仍仅为日志心跳。
+# 启用后核对 shutdown_timeout；预算不足将警告并跳过观测。worker 全开建议 55 秒。
+observability:
+  service_name: kafka_worker
+  metrics:
+    enable: false
+    address: 127.0.0.1:9093 # 容器内供抓取时改为 0.0.0.0，限制可信网络访问
+    shutdown_timeout: 2s
+  tracing:
+    enable: false
+    endpoint: http://127.0.0.1:4318/v1/traces
+    sample_ratio: 0.1 # 联调设为 1；比例只控制根链路，父采样决定优先
+    export_timeout: 3s
+    shutdown_timeout: 5s
